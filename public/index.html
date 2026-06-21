@@ -2,274 +2,344 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>10Chat.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10Chat</title>
 <style>
+  :root {
+    --bg-light: #f5ede9;
+    --bg-dark: #0d0907;
+    --text-on-dark: #ffffff;
+    --text-on-light: #0d0907;
+    --text-muted: #8a8178;
+    --border-subtle: #2a2420;
+    --accent: #ffffff;
+  }
+
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
-    background-color: #6699CC;
-    background-image:
-      repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0px, rgba(255,255,255,0.08) 2px, transparent 2px, transparent 12px);
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 12px;
-    color: #1A1A3D;
+    height: 100%;
+    background: var(--bg-light);
+    color: var(--text-on-light);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
   }
 
-  a { color: #0033CC; text-decoration: none; cursor: pointer; }
-  a:hover { text-decoration: underline; color: #FF1493; }
+  a { color: inherit; text-decoration: none; cursor: pointer; }
+  a:hover { opacity: 0.7; }
+  button { cursor: pointer; font-family: inherit; }
+  textarea, input { font-family: inherit; }
 
-  /* ===== MARQUEE TOP BAR ===== */
-  .topmarquee {
-    background: #000033;
-    color: #CCFF00;
-    font-family: "Courier New", monospace;
-    font-weight: bold;
-    font-size: 13px;
-    padding: 3px 0;
-    border-bottom: 3px solid #FF1493;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    overflow: hidden;
+  /* ===== APP SHELL ===== */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    min-height: 100vh;
   }
-  .topmarquee marquee { display: inline-block; }
+  @media (max-width: 1000px) {
+    .app-shell { grid-template-columns: 220px 1fr; }
+    .right-rail { display: none; }
+  }
+  @media (max-width: 700px) {
+    .app-shell { grid-template-columns: 1fr; }
+    .left-sidebar { display: none; }
+  }
 
-  /* ===== HEADER ===== */
-  .siteheader {
-    background: linear-gradient(180deg, #FF66CC 0%, #FF1493 50%, #CC0099 100%);
-    border-bottom: 4px solid #000033;
-    padding: 10px 14px;
+  /* ===== LEFT SIDEBAR ===== */
+  .left-sidebar {
+    background: var(--bg-dark);
+    color: var(--text-on-dark);
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .sidebar-logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
     gap: 8px;
   }
-  .logo {
-    font-family: "Comic Sans MS", "Marker Felt", cursive;
-    font-size: 32px;
-    font-weight: bold;
-    color: #FFFF00;
-    text-shadow: 2px 2px 0 #0033CC, -1px -1px 0 #000;
-    margin: 0;
-    transform: rotate(-2deg);
-    cursor: pointer;
-  }
-  .logo span { color: #00FFCC; }
-
-  .searchbar { display: flex; align-items: center; gap: 4px; }
-  .searchbar input[type=text] {
-    border: 2px inset #336699;
-    font-size: 11px;
-    padding: 4px 6px;
-    width: 150px;
-  }
-  .searchbar button {
-    background: linear-gradient(180deg, #FFCC00, #FF9900);
-    border: 2px outset #fff;
-    font-weight: bold;
-    padding: 4px 8px;
-    cursor: pointer;
-    font-size: 11px;
+  .sidebar-logo .mark {
+    width: 30px; height: 30px;
+    border: 1.5px solid var(--text-on-dark);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
   }
 
-  .navlinks {
-    background: #FFFDE0;
-    border: 2px outset #fff;
-    padding: 6px 10px;
-    font-weight: bold;
-    font-size: 11px;
-    white-space: nowrap;
-  }
-  .navlinks a { margin: 0 6px; color: #0033CC; }
-  .navlinks a:hover { color: #FF1493; }
-
-  /* ===== MAIN LAYOUT ===== */
-  .pagewrap {
-    max-width: 1020px;
-    margin: 10px auto;
-    background: #FFFDF0;
-    border: 4px ridge #0033CC;
-    padding: 8px;
-    min-height: 300px;
-  }
-  table.layout { width: 100%; border-collapse: collapse; }
-  td.col-left { width: 230px; vertical-align: top; padding: 4px; }
-  td.col-center { vertical-align: top; padding: 4px; }
-  td.col-right { width: 230px; vertical-align: top; padding: 4px; }
-
-  /* ===== MODULE BOX ===== */
-  .box { border: 2px solid #336699; margin-bottom: 10px; background: #fff; }
-  .box-head {
-    background: linear-gradient(180deg, #99CCFF, #3366CC);
-    color: #fff;
-    font-family: "Times New Roman", serif;
-    font-weight: bold;
+  .sidebar-search { position: relative; }
+  .sidebar-search input {
+    width: 100%;
+    background: #1a1512;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-on-dark);
+    padding: 9px 32px 9px 12px;
+    border-radius: 6px;
     font-size: 13px;
-    padding: 4px 8px;
-    border-bottom: 2px solid #003366;
-    text-shadow: 1px 1px 0 #000;
   }
-  .box-body { padding: 8px; background: #F5F9FF; }
+  .sidebar-search input::placeholder { color: var(--text-muted); }
+  .sidebar-search button {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-muted); font-size: 14px; padding: 4px;
+  }
 
-  /* ===== PROFILE PIC ===== */
-  .profilepic {
-    text-align: center;
-    padding: 10px;
-    background: repeating-linear-gradient(45deg, #FFD1E8, #FFD1E8 10px, #FFEFF7 10px, #FFEFF7 20px);
-    border: 2px solid #FF1493;
+  .sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+  .sidebar-nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text-on-dark);
+    position: relative;
   }
-  .profilepic img {
-    width: 130px; height: 130px;
-    border: 4px solid #fff;
-    outline: 3px solid #0033CC;
-    box-shadow: 3px 3px 6px rgba(0,0,0,0.4);
-    object-fit: cover;
+  .sidebar-nav-item:hover { background: #1a1512; opacity: 1; }
+  .sidebar-nav-item .dot {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: #2a2420;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    overflow: hidden;
   }
-  .profilepic .uname {
-    font-family: "Comic Sans MS", cursive;
-    font-size: 16px;
-    color: #CC0099;
-    font-weight: bold;
-    margin-top: 6px;
+  .sidebar-nav-item .dot img { width: 100%; height: 100%; object-fit: cover; }
+  .sidebar-nav-item .badge {
+    margin-left: auto;
+    background: var(--text-on-dark);
+    color: var(--bg-dark);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
   }
-  .status-line { font-style: italic; color: #336699; font-size: 11px; margin-top: 2px; }
 
-  /* ===== STATS TABLE ===== */
-  table.stats { width: 100%; font-size: 11px; border-collapse: collapse; }
-  table.stats td { padding: 3px 4px; border-bottom: 1px dotted #99BBDD; }
-  table.stats td.lbl { font-weight: bold; color: #003366; width: 45%; }
+  .sidebar-bottom { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
 
-  /* ===== ABOUT ME ===== */
-  .aboutme { font-size: 11px; line-height: 1.5; background: #FFFFEE; padding: 6px; border: 1px dashed #CC9900; }
+  /* ===== TOP STATUS BAR (above center feed) ===== */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 24px 8px;
+  }
+  .topbar .pfp {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--bg-dark);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .topbar .pfp img { width: 100%; height: 100%; object-fit: cover; }
+  .topbar input[type=text] {
+    flex: 1;
+    background: var(--bg-dark);
+    color: var(--text-on-dark);
+    border: none;
+    border-radius: 20px;
+    padding: 11px 18px;
+    font-size: 13px;
+  }
+  .topbar input[type=text]::placeholder { color: var(--text-muted); }
+  .topbar button.post-btn {
+    background: var(--bg-dark);
+    color: var(--text-on-dark);
+    border: none;
+    border-radius: 20px;
+    padding: 11px 18px;
+    font-size: 13px;
+    font-weight: 600;
+  }
 
-  /* ===== STATUS UPDATE BOX ===== */
-  .statusbox textarea {
-    width: 100%; height: 50px;
-    font-family: "Comic Sans MS", cursive;
-    font-size: 12px;
-    border: 2px inset #336699;
-    padding: 4px;
-    resize: vertical;
+  /* ===== CENTER FEED ===== */
+  .center-col { padding: 0 24px 40px; max-width: 720px; }
+  .feed-heading { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 18px 0 10px; }
+
+  .post-card {
+    background: var(--bg-dark);
+    color: var(--text-on-dark);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
   }
-  button, .btn {
-    background: linear-gradient(180deg, #FFCC00, #FF9900);
-    border: 2px outset #fff;
-    font-weight: bold;
-    padding: 5px 14px;
-    cursor: pointer;
-    font-size: 11px;
+  .post-card .phead { display: flex; align-items: center; gap: 10px; }
+  .post-card .phead img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #2a2420; }
+  .post-card .pname { font-weight: 600; font-size: 13px; }
+  .post-card .pcontext { color: var(--text-muted); font-size: 12px; }
+  .post-card .ptime { color: var(--text-muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
+  .post-card .pbody { margin-top: 10px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+  .post-card .pactions { margin-top: 12px; display: flex; gap: 18px; font-size: 12px; color: var(--text-muted); }
+  .post-card .pactions a:hover { opacity: 1; color: var(--text-on-dark); }
+  .post-card .pactions a.liked { color: var(--text-on-dark); font-weight: 600; }
+
+  .commentsbox { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+  .commentitem { font-size: 12px; padding: 6px 0; }
+  .commentitem .cwho { font-weight: 600; }
+  .commentitem .ctime { color: var(--text-muted); font-size: 10px; margin-left: 6px; }
+  .commentitem .ctext { margin-top: 1px; color: #ddd; }
+  .commentitem .cactions { font-size: 10px; margin-top: 3px; color: var(--text-muted); }
+  .commentitem .cactions a { margin-right: 10px; }
+  .replybox { margin-left: 14px; border-left: 1px solid var(--border-subtle); padding-left: 10px; margin-top: 4px; }
+  .addcomment { margin-top: 8px; display: flex; gap: 6px; }
+  .addcomment input {
+    flex: 1; background: #1a1512; border: 1px solid var(--border-subtle);
+    color: var(--text-on-dark); border-radius: 16px; padding: 7px 12px; font-size: 12px;
   }
-  button:active { border-style: inset; }
-  .btn-green { background: linear-gradient(180deg, #99FF99, #33CC33); }
-  .btn-pink { background: linear-gradient(180deg, #FF99CC, #FF3399); }
-  .btn-grey { background: linear-gradient(180deg, #DDDDDD, #AAAAAA); }
-  .btn-small { font-size: 10px; padding: 3px 8px; }
+  .addcomment button {
+    background: var(--text-on-dark); color: var(--bg-dark); border: none;
+    border-radius: 16px; padding: 7px 14px; font-size: 12px; font-weight: 600;
+  }
+
+  .empty-note { color: var(--text-muted); font-size: 13px; padding: 30px 0; text-align: center; }
+
+  /* ===== RIGHT RAIL ===== */
+  .right-rail {
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .rail-card { background: var(--bg-dark); color: var(--text-on-dark); border-radius: 14px; padding: 14px; }
+  .rail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 10px;
+  }
+  .rail-head .link-btn { font-size: 11px; text-transform: none; font-weight: 400; color: var(--text-muted); }
+  .rail-search input {
+    width: 100%; background: #1a1512; border: 1px solid var(--border-subtle);
+    color: var(--text-on-dark); padding: 7px 10px; border-radius: 16px; font-size: 12px; margin-bottom: 8px;
+  }
+  .rail-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+  .rail-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .rail-item img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #2a2420; flex-shrink: 0; }
+  .rail-item .iname { font-weight: 500; }
+  .rail-item .istatus { font-size: 10px; color: var(--text-muted); }
+  .dot-online { width: 7px; height: 7px; border-radius: 50%; background: #5fdc7e; display: inline-block; margin-right: 4px; }
+  .dot-offline { width: 7px; height: 7px; border-radius: 50%; background: #555; display: inline-block; margin-right: 4px; }
+
+  .group-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
+  .group-row:last-child { border-bottom: none; }
+  .group-name { font-weight: 500; }
+  .group-count { color: var(--text-muted); font-size: 10px; }
+
+  /* ===== BUTTONS / FORM ELEMENTS (generic) ===== */
+  .btn {
+    background: var(--bg-dark); color: var(--text-on-dark); border: none;
+    border-radius: 20px; padding: 9px 18px; font-size: 13px; font-weight: 600;
+  }
+  .btn-light { background: var(--bg-light); color: var(--text-on-light); border: 1px solid var(--border-subtle); }
+  .btn-outline { background: transparent; color: var(--text-on-dark); border: 1px solid var(--border-subtle); }
+  .btn-small { padding: 5px 12px; font-size: 11px; border-radius: 16px; }
+  .btn-danger { background: #3a1414; color: #ff8a8a; }
 
   input[type=text], input[type=email], input[type=password], textarea {
-    border: 2px inset #336699;
-    font-family: Arial;
-    font-size: 12px;
-    padding: 5px;
     width: 100%;
-    margin-bottom: 8px;
+    border: 1px solid #d8cfc8;
+    background: #fff;
+    color: var(--text-on-light);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 10px;
   }
+  label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px; }
 
-  /* ===== WALL POSTS ===== */
-  .wallpost { border-bottom: 2px dotted #99AACC; padding: 8px 4px; display: flex; gap: 8px; }
-  .wallpost:last-child { border-bottom: none; }
-  .wallpost img.thumb { width: 44px; height: 44px; border: 2px solid #336699; flex-shrink: 0; object-fit: cover; }
-  .wallpost .body { flex: 1; min-width: 0; }
-  .wallpost .meta { font-weight: bold; color: #CC0099; font-size: 12px; }
-  .wallpost .meta .time { font-weight: normal; color: #888; font-size: 10px; margin-left: 6px; }
-  .wallpost .msg { font-size: 12px; margin-top: 2px; line-height: 1.4; word-wrap: break-word; }
-  .wallpost .actions { font-size: 10px; margin-top: 4px; }
-  .wallpost .actions a { margin-right: 10px; }
-  .wallpost .actions a.liked { color: #FF1493; font-weight: bold; }
-
-  /* ===== COMMENTS (threaded) ===== */
-  .commentsbox { margin-top: 6px; padding-left: 8px; border-left: 2px solid #CCDDEE; }
-  .commentitem { font-size: 11px; padding: 5px 0; }
-  .commentitem .who { font-weight: bold; color: #336699; }
-  .commentitem .time { color: #999; font-size: 10px; margin-left: 4px; }
-  .commentitem .ctext { margin-top: 1px; }
-  .commentitem .cactions { font-size: 10px; margin-top: 2px; }
-  .commentitem .cactions a { margin-right: 8px; }
-  .replybox { margin-left: 16px; border-left: 2px dotted #DDD; padding-left: 8px; margin-top: 4px; }
-  .addcomment { margin-top: 6px; display: flex; gap: 4px; }
-  .addcomment input { margin-bottom: 0; flex: 1; }
-  .addcomment button { padding: 5px 10px; }
-
-  /* ===== TOP FRIENDS GRID ===== */
-  .friendsgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .friendcard {
-    text-align: center; background: #fff; border: 2px solid #99CCFF;
-    padding: 4px; position: relative; overflow: hidden;
-  }
-  .friendcard img { width: 64px; height: 64px; border: 2px solid #336699; object-fit: cover; }
-  .friendcard .fname { font-size: 10px; font-weight: bold; color: #003366; display: block; margin-top: 2px; }
-  .friendcard::before {
-    content: "✦"; position: absolute; color: gold; font-size: 14px; top: 2px; right: 4px;
-    animation: sparkle 1.4s ease-in-out infinite; text-shadow: 0 0 4px #fff;
-  }
-  .friendcard:nth-child(even)::before { animation-delay: 0.6s; left: 4px; right: auto; }
-  @keyframes sparkle {
-    0%, 100% { opacity: 0.2; transform: scale(0.7) rotate(0deg); }
-    50% { opacity: 1; transform: scale(1.3) rotate(45deg); }
-  }
-
-  /* ===== SEARCH RESULTS ===== */
-  .searchresult { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px dotted #99BBDD; }
-  .searchresult img { width: 36px; height: 36px; border: 2px solid #336699; object-fit: cover; }
-  .searchresult .sname { font-weight: bold; color: #0033CC; }
-
-  .error-msg { color: #CC0000; font-weight: bold; font-size: 11px; margin-bottom: 6px; }
-  .success-msg { color: #009900; font-weight: bold; font-size: 11px; margin-bottom: 6px; }
+  .error-msg { color: #b3261e; font-size: 12px; margin-bottom: 8px; font-weight: 600; }
+  .success-msg { color: #2e7d32; font-size: 12px; margin-bottom: 8px; font-weight: 600; }
   .hidden { display: none !important; }
 
-  .glitterdiv {
-    text-align: center; font-family: "Comic Sans MS", cursive; font-size: 15px; font-weight: bold;
-    padding: 6px; background: linear-gradient(90deg, #FF1493, #FFCC00, #00CCFF, #FF1493);
-    background-size: 300% 100%; animation: gradientmove 4s linear infinite;
-    color: #fff; text-shadow: 1px 1px 2px #000; border: 2px solid #000; margin-bottom: 10px;
-  }
-  @keyframes gradientmove { 0% { background-position: 0% 0; } 100% { background-position: 100% 0; } }
+  /* ===== AUTH PAGES ===== */
+  .auth-wrap { max-width: 380px; margin: 60px auto; padding: 0 20px; }
+  .auth-card { background: var(--bg-dark); color: var(--text-on-dark); border-radius: 16px; padding: 28px; }
+  .auth-card h2 { margin: 0 0 18px; font-size: 20px; }
+  .auth-card label { color: var(--text-muted); }
+  .auth-card input { background: #1a1512; border: 1px solid var(--border-subtle); color: var(--text-on-dark); }
+  .auth-card .btn { width: 100%; margin-top: 6px; }
+  .auth-card p { font-size: 12px; color: var(--text-muted); margin-top: 14px; }
+  .auth-card p a { color: var(--text-on-dark); text-decoration: underline; }
 
-  .friendreq { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px dotted #99BBDD; }
-  .friendreq img { width: 36px; height: 36px; border: 2px solid #336699; object-fit: cover; }
-
-  .sitefooter {
-    text-align: center; background: #000033; color: #99CCFF;
-    font-size: 10px; padding: 10px; margin-top: 10px; border-top: 4px solid #FF1493;
+  /* ===== PROFILE PAGE ===== */
+  .profile-header {
+    display: flex; align-items: flex-end; gap: 18px;
+    padding: 28px 24px 18px;
   }
-  .sitefooter a { color: #FFFF00; }
+  .profile-header .pfp-large {
+    width: 86px; height: 86px; border-radius: 50%;
+    background: var(--bg-dark); overflow: hidden; flex-shrink: 0;
+  }
+  .profile-header .pfp-large img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-header h1 { font-size: 22px; margin: 0; }
+  .profile-header .handle { color: var(--text-muted); font-size: 13px; }
+  .profile-header .mood { font-size: 13px; margin-top: 4px; font-style: italic; }
+  .profile-meta-row { display: flex; gap: 18px; padding: 0 24px 14px; font-size: 12px; color: var(--text-muted); }
+  .profile-actions { padding: 0 24px 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .profile-bio { padding: 0 24px 18px; font-size: 13px; line-height: 1.5; max-width: 640px; }
+
+  .top8-strip { display: flex; gap: 10px; padding: 0 24px 20px; overflow-x: auto; }
+  .top8-card { text-align: center; flex-shrink: 0; width: 64px; }
+  .top8-card img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #ddd; }
+  .top8-card .tname { font-size: 10px; margin-top: 4px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ===== MESSAGES ===== */
+  .messages-layout { display: grid; grid-template-columns: 260px 1fr; min-height: 70vh; }
+  .conv-list { border-right: 1px solid #e3d9d2; }
+  .conv-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #efe7e1; }
+  .conv-item:hover { background: #efe7e1; }
+  .conv-item img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--bg-dark); }
+  .conv-item .cname { font-size: 13px; font-weight: 600; }
+  .conv-item .clast { font-size: 11px; color: var(--text-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv-item .cunread { background: var(--bg-dark); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: auto; }
+
+  .thread-wrap { display: flex; flex-direction: column; height: 70vh; }
+  .thread-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #e3d9d2; }
+  .thread-header img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+  .thread-body { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .msg-bubble { max-width: 60%; padding: 9px 13px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
+  .msg-mine { align-self: flex-end; background: var(--bg-dark); color: #fff; }
+  .msg-theirs { align-self: flex-start; background: #efe7e1; color: var(--text-on-light); }
+  .thread-input { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #e3d9d2; }
+  .thread-input input { margin-bottom: 0; flex: 1; }
+  .thread-input button { border-radius: 20px; padding: 0 18px; }
+
+  /* ===== GROUPS ===== */
+  .groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; padding: 0 24px 30px; }
+  .group-card { background: var(--bg-dark); color: #fff; border-radius: 14px; padding: 16px; }
+  .group-card h3 { margin: 0 0 4px; font-size: 15px; }
+  .group-card p { margin: 0 0 10px; font-size: 12px; color: var(--text-muted); min-height: 32px; }
+  .group-card .gmeta { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+
+  .group-detail-header { padding: 24px; }
+  .member-chip-row { display: flex; gap: -6px; }
 </style>
 </head>
 <body>
 
-<div class="topmarquee">
-  <marquee behavior="scroll" direction="left" scrollamount="4">
-    ★ WELCOME TO 10CHAT ★ comment your friends today!! ★ search for people you know ★ no h8 only l0ve ★
-  </marquee>
-</div>
+<div class="app-shell" id="app-shell">
+  <div class="left-sidebar">
+    <div class="sidebar-logo" onclick="navigate('/')">
+      <span class="mark">10</span> 10Chat
+    </div>
+    <form class="sidebar-search" id="search-form">
+      <input type="text" id="search-input" placeholder="Search username...">
+      <button type="submit">🔍</button>
+    </form>
+    <div class="sidebar-nav" id="sidebar-nav"></div>
+    <div class="sidebar-bottom" id="sidebar-bottom"></div>
+  </div>
 
-<div class="siteheader">
-  <div class="logo" onclick="navigate('/')">10<span>Chat</span></div>
-  <form class="searchbar" id="search-form">
-    <input type="text" id="search-input" placeholder="search username...">
-    <button type="submit">Search</button>
-  </form>
-  <div class="navlinks" id="navlinks"></div>
-</div>
+  <div id="main-col">Loading...</div>
 
-<div class="pagewrap" id="app">Loading...</div>
-
-<div class="sitefooter">
-  10Chat.com &copy; 2026 | <span style="font-family:'Comic Sans MS',cursive;">Best viewed at 800x600 in your heart</span>
+  <div class="right-rail" id="right-rail"></div>
 </div>
 
 <script>
 const API = '/api';
 let currentUser = null;
+let unreadMsgCount = 0;
 
 async function api(method, url, body) {
   const res = await fetch(API + url, {
@@ -290,16 +360,16 @@ function escapeHtml(str) {
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr + 'Z')) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-  return Math.floor(seconds / 86400) + 'd ago';
+  if (seconds < 60) return 'now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 86400) + 'd';
 }
 
 function avatarFallback(el, username) {
   el.onerror = () => {
     el.onerror = null;
-    el.src = `https://placehold.co/100x100/FF69B4/ffffff?text=${encodeURIComponent((username || '?')[0].toUpperCase())}`;
+    el.src = `https://placehold.co/100x100/0d0907/ffffff?text=${encodeURIComponent((username || '?')[0].toUpperCase())}`;
   };
 }
 
@@ -310,78 +380,201 @@ function navigate(path) {
 }
 window.addEventListener('popstate', render);
 
-function renderNav() {
-  const nav = document.getElementById('navlinks');
-  if (currentUser) {
-    nav.innerHTML = `
-      <a onclick="navigate('/')">Home</a>|
-      <a onclick="navigate('/profile/${escapeHtml(currentUser.username)}')">My Profile</a>|
-      <a onclick="navigate('/friends')">Friends</a>|
-      <a onclick="doLogout()">Logout</a>
-    `;
-  } else {
-    nav.innerHTML = `
-      <a onclick="navigate('/login')">Login</a>|
-      <a onclick="navigate('/signup')">Sign Up</a>
-    `;
-  }
-}
-
 document.getElementById('search-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = document.getElementById('search-input').value.trim();
   if (q) navigate('/search?q=' + encodeURIComponent(q));
 });
 
+// ---------- Sidebar ----------
+function renderSidebar() {
+  const nav = document.getElementById('sidebar-nav');
+  const bottom = document.getElementById('sidebar-bottom');
+
+  if (!currentUser) {
+    nav.innerHTML = '';
+    bottom.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn" style="width:100%;" onclick="navigate('/login')">Log In</button>
+        <button class="btn btn-outline" style="width:100%;" onclick="navigate('/signup')">Sign Up</button>
+      </div>
+    `;
+    return;
+  }
+
+  nav.innerHTML = `
+    <a class="sidebar-nav-item" onclick="navigate('/profile/${escapeHtml(currentUser.username)}')">
+      <span class="dot"><img src="${currentUser.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(currentUser.username)}')"></span>
+      ${escapeHtml(currentUser.display_name || currentUser.username)}
+    </a>
+    <a class="sidebar-nav-item" onclick="navigate('/friends')">
+      <span class="dot">👥</span> Friends
+    </a>
+    <a class="sidebar-nav-item" onclick="navigate('/messages')">
+      <span class="dot">✉️</span> Messages
+      <span class="badge ${unreadMsgCount ? '' : 'hidden'}" id="msg-badge">${unreadMsgCount}</span>
+    </a>
+    <a class="sidebar-nav-item" onclick="navigate('/groups')">
+      <span class="dot">◎</span> Groups
+    </a>
+    <a class="sidebar-nav-item" onclick="navigate('/favourites')">
+      <span class="dot">★</span> Favourites
+    </a>
+  `;
+
+  bottom.innerHTML = `<a class="sidebar-nav-item" onclick="doLogout()"><span class="dot">⏏</span> Logout</a>`;
+}
+
 async function doLogout() {
   await api('POST', '/logout');
   currentUser = null;
-  renderNav();
+  renderSidebar();
   navigate('/');
 }
 
 async function refreshMe() {
   const data = await api('GET', '/me');
   currentUser = data.user;
-  renderNav();
+  if (currentUser) refreshUnreadCount();
+}
+
+async function refreshUnreadCount() {
+  try {
+    const { count } = await api('GET', '/messages/unread/count');
+    unreadMsgCount = count;
+    const badge = document.getElementById('msg-badge');
+    if (badge) {
+      badge.textContent = count;
+      badge.classList.toggle('hidden', !count);
+    }
+  } catch (e) { /* ignore */ }
 }
 
 // ---------- Router ----------
 async function render() {
-  const path = location.pathname;
-  const app = document.getElementById('app');
+  renderSidebar();
+  document.getElementById('right-rail').innerHTML = '';
 
-  if (path === '/signup') return renderSignup(app);
-  if (path === '/login') return renderLogin(app);
-  if (path === '/friends') return renderFriendsPage(app);
-  if (path === '/search') return renderSearch(app);
-  if (path.startsWith('/profile/')) return renderProfile(app, decodeURIComponent(path.split('/profile/')[1]));
-  return renderHome(app);
+  const path = location.pathname;
+  const main = document.getElementById('main-col');
+
+  if (path === '/signup') return renderSignup(main);
+  if (path === '/login') return renderLogin(main);
+  if (path === '/friends') return renderFriendsPage(main);
+  if (path === '/messages') return renderMessagesPage(main);
+  if (path.startsWith('/messages/')) return renderMessagesPage(main, decodeURIComponent(path.split('/messages/')[1]));
+  if (path === '/groups') return renderGroupsPage(main);
+  if (path.startsWith('/groups/')) return renderGroupDetail(main, path.split('/groups/')[1]);
+  if (path === '/favourites') return renderFavouritesPage(main);
+  if (path === '/search') return renderSearch(main);
+  if (path.startsWith('/profile/')) return renderProfile(main, decodeURIComponent(path.split('/profile/')[1]));
+  return renderHome(main);
+}
+
+async function renderRightRail() {
+  const rail = document.getElementById('right-rail');
+  if (!currentUser) { rail.innerHTML = ''; return; }
+
+  rail.innerHTML = `
+    <div class="rail-card">
+      <div class="rail-head">Groups <a class="link-btn" onclick="navigate('/groups')">see all</a></div>
+      <div id="rail-groups">Loading...</div>
+      <button class="btn btn-small" style="margin-top:10px; width:100%;" onclick="navigate('/groups')">+ Browse / Create</button>
+    </div>
+    <div class="rail-card">
+      <div class="rail-head">Friends</div>
+      <input type="text" placeholder="Search friends..." id="rail-friend-search" oninput="filterRailFriends()">
+      <div class="rail-list" id="rail-friends">Loading...</div>
+    </div>
+  `;
+
+  try {
+    const { groups } = await api('GET', '/groups');
+    const mine = groups.filter(g => g.is_member).slice(0, 5);
+    document.getElementById('rail-groups').innerHTML = mine.length
+      ? mine.map(g => `
+        <div class="group-row">
+          <a class="group-name" onclick="navigate('/groups/${g.id}')">${escapeHtml(g.name)}</a>
+          <span class="group-count">${g.member_count}</span>
+        </div>
+      `).join('')
+      : '<div style="font-size:11px; color:var(--text-muted);">No groups joined yet.</div>';
+  } catch (e) { document.getElementById('rail-groups').innerHTML = ''; }
+
+  try {
+    const { friends } = await api('GET', '/friends');
+    window._railFriends = friends;
+    renderRailFriendsList(friends);
+  } catch (e) { document.getElementById('rail-friends').innerHTML = ''; }
+}
+
+function renderRailFriendsList(friends) {
+  const el = document.getElementById('rail-friends');
+  if (!el) return;
+  if (!friends.length) { el.innerHTML = '<div style="font-size:11px; color:var(--text-muted);">No friends yet \u2014 try the search above.</div>'; return; }
+  el.innerHTML = friends.map(f => `
+    <a class="rail-item" onclick="navigate('/profile/${escapeHtml(f.username)}')">
+      <img src="${f.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(f.username)}')">
+      <div>
+        <div class="iname">${escapeHtml(f.display_name || f.username)}</div>
+        <div class="istatus"><span class="${f.is_online ? 'dot-online' : 'dot-offline'}"></span>${f.is_online ? 'Online now' : 'Offline'}</div>
+      </div>
+    </a>
+  `).join('');
+}
+
+function filterRailFriends() {
+  const q = document.getElementById('rail-friend-search').value.toLowerCase();
+  const filtered = (window._railFriends || []).filter(f =>
+    f.username.toLowerCase().includes(q) || (f.display_name || '').toLowerCase().includes(q)
+  );
+  renderRailFriendsList(filtered);
 }
 
 // ---------- Home feed ----------
-async function renderHome(app) {
+async function renderHome(main) {
   if (!currentUser) {
-    app.innerHTML = `
-      <div class="glitterdiv">✰ ✰ ✰ WELCOME TO 10CHAT ✰ ✰ ✰</div>
-      <div class="box">
-        <div class="box-head">Welcome!</div>
-        <div class="box-body">
-          <p>The social network that time forgot (until now). <a onclick="navigate('/signup')">Sign up</a> or
-          <a onclick="navigate('/login')">log in</a> to get started.</p>
+    main.innerHTML = `
+      <div style="padding:60px 24px; max-width:600px;">
+        <h1 style="font-size:30px; margin-bottom:6px;">Welcome to 10Chat.</h1>
+        <p style="color:var(--text-muted); font-size:14px; margin-bottom:20px;">
+          The social network that time forgot, rebuilt for now.
+        </p>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" onclick="navigate('/signup')">Sign Up</button>
+          <button class="btn btn-light" onclick="navigate('/login')">Log In</button>
         </div>
       </div>
     `;
     return;
   }
 
-  app.innerHTML = `
-    <div class="box">
-      <div class="box-head">Recent Activity on 10Chat</div>
-      <div class="box-body" id="feed-container">Loading feed...</div>
+  main.innerHTML = `
+    <div class="topbar">
+      <div class="pfp"><img src="${currentUser.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(currentUser.username)}')"></div>
+      <input type="text" id="status-input" placeholder="What's on your mind?">
+      <button class="post-btn" onclick="postStatusToFeed()">Post</button>
+    </div>
+    <div class="center-col">
+      <div class="feed-heading">World Feed</div>
+      <div id="feed-container">Loading feed...</div>
     </div>
   `;
+  renderRightRail();
   await loadFeedInto('feed-container', '/feed');
+}
+
+async function postStatusToFeed() {
+  const input = document.getElementById('status-input');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await api('POST', `/profile/${currentUser.username}/wall`, { content });
+    input.value = '';
+    loadFeedInto('feed-container', '/feed');
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function loadFeedInto(containerId, endpoint) {
@@ -389,11 +582,10 @@ async function loadFeedInto(containerId, endpoint) {
   try {
     const { posts } = await api('GET', endpoint);
     if (!posts.length) {
-      container.innerHTML = '<i>No posts yet.</i>';
+      container.innerHTML = '<div class="empty-note">Nothing here yet. Be the first to post.</div>';
       return;
     }
     container.innerHTML = posts.map(p => renderPostHtml(p, true)).join('');
-    posts.forEach(p => loadComments(p.id));
   } catch (err) {
     container.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
   }
@@ -402,26 +594,25 @@ async function loadFeedInto(containerId, endpoint) {
 // ---------- Post + comments rendering ----------
 function renderPostHtml(p, showWallContext) {
   const wallContext = showWallContext
-    ? ` wrote on <a onclick="navigate('/profile/${escapeHtml(p.profile_username)}')">${escapeHtml(p.profile_display_name || p.profile_username)}</a>'s wall`
+    ? `<span class="pcontext">on ${p.profile_username === p.author_username ? "their" : ""} <a onclick="navigate('/profile/${escapeHtml(p.profile_username)}')">${escapeHtml(p.profile_display_name || p.profile_username)}</a>'s wall</span>`
     : '';
   return `
-    <div class="wallpost" data-post-id="${p.id}">
-      <img class="thumb" src="${p.author_pic}" onerror="avatarFallback(this,'${escapeHtml(p.author_username)}')">
-      <div class="body">
-        <div class="meta">
-          <a onclick="navigate('/profile/${escapeHtml(p.author_username)}')">${escapeHtml(p.author_display_name || p.author_username)}</a>${wallContext}
-          <span class="time">${timeAgo(p.created_at)}</span>
-        </div>
-        <div class="msg">${escapeHtml(p.content)}</div>
-        <div class="actions">
-          <a class="${p.liked_by_me ? 'liked' : ''}" id="like-link-${p.id}" onclick="toggleLike(${p.id})">
-            ${p.liked_by_me ? '★ Liked' : '☆ Like'} (<span id="like-count-${p.id}">${p.like_count}</span>)
-          </a>
-          <a onclick="toggleCommentsBox(${p.id})">💬 Comments (<span id="comment-count-${p.id}">${p.comment_count}</span>)</a>
-          ${currentUser ? `<a onclick="deletePostFromFeed(${p.id})">Delete</a>` : ''}
-        </div>
-        <div id="comments-${p.id}" class="commentsbox hidden"></div>
+    <div class="post-card" data-post-id="${p.id}">
+      <div class="phead">
+        <img src="${p.author_pic}" onerror="avatarFallback(this,'${escapeHtml(p.author_username)}')">
+        <a class="pname" onclick="navigate('/profile/${escapeHtml(p.author_username)}')">${escapeHtml(p.author_display_name || p.author_username)}</a>
+        ${wallContext}
+        <span class="ptime">${timeAgo(p.created_at)}</span>
       </div>
+      <div class="pbody">${escapeHtml(p.content)}</div>
+      <div class="pactions">
+        <a class="${p.liked_by_me ? 'liked' : ''}" id="like-link-${p.id}" onclick="toggleLike(${p.id})">
+          ${p.liked_by_me ? '★ Liked' : '☆ Like'} (<span id="like-count-${p.id}">${p.like_count}</span>)
+        </a>
+        <a onclick="toggleCommentsBox(${p.id})">💬 Comments (<span id="comment-count-${p.id}">${p.comment_count}</span>)</a>
+        ${currentUser ? `<a onclick="deletePostFromFeed(${p.id})">Delete</a>` : ''}
+      </div>
+      <div id="comments-${p.id}" class="commentsbox hidden"></div>
     </div>
   `;
 }
@@ -430,7 +621,6 @@ async function toggleLike(postId) {
   if (!currentUser) { navigate('/login'); return; }
   try {
     const { liked, count } = await api('POST', `/posts/${postId}/like`);
-    document.getElementById(`like-count-${postId}`).textContent = count;
     const link = document.getElementById(`like-link-${postId}`);
     link.classList.toggle('liked', liked);
     link.innerHTML = `${liked ? '★ Liked' : '☆ Like'} (<span id="like-count-${postId}">${count}</span>)`;
@@ -442,9 +632,7 @@ async function toggleLike(postId) {
 function toggleCommentsBox(postId) {
   const box = document.getElementById(`comments-${postId}`);
   box.classList.toggle('hidden');
-  if (!box.classList.contains('hidden') && !box.dataset.loaded) {
-    loadComments(postId);
-  }
+  if (!box.classList.contains('hidden') && !box.dataset.loaded) loadComments(postId);
 }
 
 async function loadComments(postId) {
@@ -454,7 +642,8 @@ async function loadComments(postId) {
     const { comments } = await api('GET', `/posts/${postId}/comments`);
     box.dataset.loaded = '1';
     box.innerHTML = renderCommentTree(comments, postId) + renderAddCommentForm(postId, null);
-    document.getElementById(`comment-count-${postId}`).textContent = countComments(comments);
+    const cc = document.getElementById(`comment-count-${postId}`);
+    if (cc) cc.textContent = countComments(comments);
   } catch (err) {
     box.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
   }
@@ -465,11 +654,11 @@ function countComments(comments) {
 }
 
 function renderCommentTree(comments, postId) {
-  if (!comments.length) return '<div style="font-size:11px; color:#999;"><i>No comments yet.</i></div>';
+  if (!comments.length) return '<div style="font-size:12px; color:var(--text-muted);">No comments yet.</div>';
   return comments.map(c => `
     <div class="commentitem">
-      <span class="who">${escapeHtml(c.author_display_name || c.author_username)}</span>
-      <span class="time">${timeAgo(c.created_at)}</span>
+      <span class="cwho">${escapeHtml(c.author_display_name || c.author_username)}</span>
+      <span class="ctime">${timeAgo(c.created_at)}</span>
       <div class="ctext">${escapeHtml(c.content)}</div>
       <div class="cactions">
         ${currentUser ? `<a onclick="showReplyForm(${postId}, ${c.id})">Reply</a>` : ''}
@@ -486,7 +675,7 @@ function renderAddCommentForm(postId, parentId) {
   const inputId = parentId ? `reply-input-${parentId}` : `comment-input-${postId}`;
   return `
     <div class="addcomment">
-      <input type="text" id="${inputId}" placeholder="${parentId ? 'write a reply...' : 'write a comment...'}">
+      <input type="text" id="${inputId}" placeholder="${parentId ? 'Write a reply...' : 'Write a comment...'}">
       <button onclick="submitComment(${postId}, ${parentId || 'null'}, '${inputId}')">Post</button>
     </div>
   `;
@@ -526,7 +715,7 @@ async function deletePostFromFeed(postId) {
   if (!confirm('Delete this post?')) return;
   try {
     await api('DELETE', `/posts/${postId}`);
-    const el = document.querySelector(`.wallpost[data-post-id="${postId}"]`);
+    const el = document.querySelector(`.post-card[data-post-id="${postId}"]`);
     if (el) el.remove();
   } catch (err) {
     alert(err.message);
@@ -534,11 +723,11 @@ async function deletePostFromFeed(postId) {
 }
 
 // ---------- Auth pages ----------
-function renderSignup(app) {
-  app.innerHTML = `
-    <div class="box" style="max-width:400px; margin:0 auto;">
-      <div class="box-head">Sign Up for 10Chat</div>
-      <div class="box-body">
+function renderSignup(main) {
+  main.innerHTML = `
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <h2>Create your account</h2>
         <div id="form-msg"></div>
         <form id="signup-form">
           <label>Username</label>
@@ -549,7 +738,7 @@ function renderSignup(app) {
           <input type="email" name="email" required>
           <label>Password (8+ characters)</label>
           <input type="password" name="password" required minlength="8">
-          <button type="submit">Create My Profile!</button>
+          <button class="btn" type="submit">Sign Up</button>
         </form>
         <p>Already have an account? <a onclick="navigate('/login')">Log in</a></p>
       </div>
@@ -561,13 +750,10 @@ function renderSignup(app) {
     const msg = document.getElementById('form-msg');
     try {
       const data = await api('POST', '/signup', {
-        username: fd.get('username'),
-        display_name: fd.get('display_name'),
-        email: fd.get('email'),
-        password: fd.get('password')
+        username: fd.get('username'), display_name: fd.get('display_name'),
+        email: fd.get('email'), password: fd.get('password')
       });
       currentUser = data.user;
-      renderNav();
       navigate('/profile/' + currentUser.username);
     } catch (err) {
       msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
@@ -575,18 +761,18 @@ function renderSignup(app) {
   });
 }
 
-function renderLogin(app) {
-  app.innerHTML = `
-    <div class="box" style="max-width:400px; margin:0 auto;">
-      <div class="box-head">Log In to 10Chat</div>
-      <div class="box-body">
+function renderLogin(main) {
+  main.innerHTML = `
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <h2>Log in</h2>
         <div id="form-msg"></div>
         <form id="login-form">
           <label>Username</label>
           <input type="text" name="username" required>
           <label>Password</label>
           <input type="password" name="password" required>
-          <button type="submit">Log In</button>
+          <button class="btn" type="submit">Log In</button>
         </form>
         <p>New here? <a onclick="navigate('/signup')">Sign up</a></p>
       </div>
@@ -599,7 +785,6 @@ function renderLogin(app) {
     try {
       const data = await api('POST', '/login', { username: fd.get('username'), password: fd.get('password') });
       currentUser = data.user;
-      renderNav();
       navigate('/profile/' + currentUser.username);
     } catch (err) {
       msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
@@ -608,33 +793,31 @@ function renderLogin(app) {
 }
 
 // ---------- Search ----------
-async function renderSearch(app) {
+async function renderSearch(main) {
   const params = new URLSearchParams(location.search);
   const q = params.get('q') || '';
   document.getElementById('search-input').value = q;
 
-  app.innerHTML = `
-    <div class="box">
-      <div class="box-head">Search Results for "${escapeHtml(q)}"</div>
-      <div class="box-body" id="search-results">Searching...</div>
+  main.innerHTML = `
+    <div class="center-col">
+      <div class="feed-heading">Search results for "${escapeHtml(q)}"</div>
+      <div id="search-results"></div>
     </div>
   `;
+  renderRightRail();
 
   const container = document.getElementById('search-results');
-  if (!q.trim()) { container.innerHTML = '<i>Type a username above to search.</i>'; return; }
+  if (!q.trim()) { container.innerHTML = '<div class="empty-note">Type a username above to search.</div>'; return; }
 
   try {
     const { users } = await api('GET', `/search?q=${encodeURIComponent(q)}`);
-    if (!users.length) {
-      container.innerHTML = '<i>No users found with that username.</i>';
-      return;
-    }
+    if (!users.length) { container.innerHTML = '<div class="empty-note">No users found.</div>'; return; }
     container.innerHTML = users.map(u => `
-      <div class="searchresult">
-        <img src="${u.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(u.username)}')">
+      <div class="post-card" style="display:flex; align-items:center; gap:12px;">
+        <img src="${u.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(u.username)}')" style="width:42px; height:42px; border-radius:50%; object-fit:cover;">
         <div>
-          <a class="sname" onclick="navigate('/profile/${escapeHtml(u.username)}')">${escapeHtml(u.display_name || u.username)}</a>
-          <div style="font-size:10px; color:#666;">@${escapeHtml(u.username)}</div>
+          <a class="pname" onclick="navigate('/profile/${escapeHtml(u.username)}')">${escapeHtml(u.display_name || u.username)}</a>
+          <div style="font-size:11px; color:var(--text-muted);">@${escapeHtml(u.username)}</div>
         </div>
       </div>
     `).join('');
@@ -643,155 +826,460 @@ async function renderSearch(app) {
   }
 }
 
-// ---------- Friends page (incoming requests) ----------
-async function renderFriendsPage(app) {
+// ---------- Friends page ----------
+async function renderFriendsPage(main) {
   if (!currentUser) { navigate('/login'); return; }
-  app.innerHTML = `
-    <div class="box">
-      <div class="box-head">Friend Requests</div>
-      <div class="box-body" id="requests-container">Loading...</div>
+  main.innerHTML = `
+    <div class="center-col">
+      <div class="feed-heading">Friend Requests</div>
+      <div id="requests-container" style="margin-bottom:30px;">Loading...</div>
+      <div class="feed-heading">My Friends</div>
+      <div id="friends-container">Loading...</div>
     </div>
   `;
-  const container = document.getElementById('requests-container');
+  renderRightRail();
+
+  const reqContainer = document.getElementById('requests-container');
   try {
     const { requests } = await api('GET', '/friends/requests');
-    if (!requests.length) {
-      container.innerHTML = '<i>No pending friend requests.</i>';
-      return;
-    }
-    container.innerHTML = requests.map(r => `
-      <div class="friendreq">
-        <img src="${r.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(r.username)}')">
-        <div style="flex:1;">
-          <a onclick="navigate('/profile/${escapeHtml(r.username)}')">${escapeHtml(r.display_name || r.username)}</a>
+    reqContainer.innerHTML = requests.length
+      ? requests.map(r => `
+        <div class="post-card" style="display:flex; align-items:center; gap:12px;">
+          <img src="${r.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(r.username)}')" style="width:38px; height:38px; border-radius:50%; object-fit:cover;">
+          <a class="pname" onclick="navigate('/profile/${escapeHtml(r.username)}')" style="flex:1;">${escapeHtml(r.display_name || r.username)}</a>
+          <button class="btn btn-small" onclick="respondToRequest('${escapeHtml(r.username)}','accept')">Accept</button>
+          <button class="btn btn-outline btn-small" onclick="respondToRequest('${escapeHtml(r.username)}','reject')">Decline</button>
         </div>
-        <button class="btn-green btn-small" onclick="respondToRequest('${escapeHtml(r.username)}', 'accept')">Accept</button>
-        <button class="btn-grey btn-small" onclick="respondToRequest('${escapeHtml(r.username)}', 'reject')">Decline</button>
-      </div>
-    `).join('');
-  } catch (err) {
-    container.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
-  }
+      `).join('')
+      : '<div class="empty-note">No pending requests.</div>';
+  } catch (err) { reqContainer.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`; }
+
+  const friendsContainer = document.getElementById('friends-container');
+  try {
+    const { friends } = await api('GET', '/friends');
+    friendsContainer.innerHTML = friends.length
+      ? friends.map(f => `
+        <div class="post-card" style="display:flex; align-items:center; gap:12px;">
+          <img src="${f.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(f.username)}')" style="width:38px; height:38px; border-radius:50%; object-fit:cover;">
+          <div style="flex:1;">
+            <a class="pname" onclick="navigate('/profile/${escapeHtml(f.username)}')">${escapeHtml(f.display_name || f.username)}</a>
+            <div style="font-size:11px; color:var(--text-muted);"><span class="${f.is_online ? 'dot-online' : 'dot-offline'}"></span>${f.is_online ? 'Online now' : 'Offline'}</div>
+          </div>
+          <button class="btn btn-outline btn-small" onclick="navigate('/messages/${escapeHtml(f.username)}')">Message</button>
+        </div>
+      `).join('')
+      : '<div class="empty-note">No friends yet. Try searching for someone.</div>';
+  } catch (err) { friendsContainer.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`; }
 }
 
 async function respondToRequest(username, action) {
   try {
     await api('POST', `/friends/${username}/${action}`);
-    renderFriendsPage(document.getElementById('app'));
+    renderFriendsPage(document.getElementById('main-col'));
+  } catch (err) { alert(err.message); }
+}
+
+// ---------- Favourites page (uses Top 8 backend) ----------
+async function renderFavouritesPage(main) {
+  if (!currentUser) { navigate('/login'); return; }
+  main.innerHTML = `
+    <div class="center-col">
+      <div class="feed-heading">Favourites (Top 8)</div>
+      <p style="font-size:12px; color:var(--text-muted); max-width:480px;">
+        Pick up to 8 friends to feature on your profile. Click a friend below to toggle them in or out of your Top 8.
+      </p>
+      <div id="fav-list" style="margin-top:14px;">Loading...</div>
+    </div>
+  `;
+  renderRightRail();
+
+  const list = document.getElementById('fav-list');
+  try {
+    const [{ friends }, profileData] = await Promise.all([
+      api('GET', '/friends'),
+      api('GET', `/profile/${currentUser.username}`)
+    ]);
+    const top8Usernames = new Set(profileData.top8.map(f => f.username));
+
+    list.innerHTML = friends.length
+      ? friends.map(f => `
+        <div class="post-card" style="display:flex; align-items:center; gap:12px;">
+          <img src="${f.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(f.username)}')" style="width:38px; height:38px; border-radius:50%; object-fit:cover;">
+          <div style="flex:1;">${escapeHtml(f.display_name || f.username)}</div>
+          <button class="btn ${top8Usernames.has(f.username) ? '' : 'btn-outline'} btn-small" id="fav-btn-${escapeHtml(f.username)}" onclick="toggleFavourite('${escapeHtml(f.username)}')">
+            ${top8Usernames.has(f.username) ? '★ In Top 8' : '☆ Add to Top 8'}
+          </button>
+        </div>
+      `).join('')
+      : '<div class="empty-note">Add some friends first.</div>';
+
+    window._currentTop8 = profileData.top8.map(f => f.username);
+  } catch (err) {
+    list.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function toggleFavourite(username) {
+  let top8 = window._currentTop8 || [];
+  if (top8.includes(username)) {
+    top8 = top8.filter(u => u !== username);
+  } else {
+    if (top8.length >= 8) { alert('You can only have 8 favourites. Remove one first.'); return; }
+    top8.push(username);
+  }
+  try {
+    await api('POST', '/friends/top8', { usernames: top8 });
+    window._currentTop8 = top8;
+    const btn = document.getElementById(`fav-btn-${username}`);
+    const isIn = top8.includes(username);
+    btn.classList.toggle('btn-outline', !isIn);
+    btn.textContent = isIn ? '★ In Top 8' : '☆ Add to Top 8';
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ---------- Messages ----------
+async function renderMessagesPage(main, activeUsername) {
+  if (!currentUser) { navigate('/login'); return; }
+  main.innerHTML = `
+    <div class="messages-layout">
+      <div class="conv-list" id="conv-list">Loading...</div>
+      <div id="thread-pane">
+        ${activeUsername ? '' : '<div class="empty-note" style="margin-top:60px;">Select a conversation, or search for someone to message.</div>'}
+      </div>
+    </div>
+  `;
+  renderRightRail();
+
+  const convList = document.getElementById('conv-list');
+  try {
+    const { conversations } = await api('GET', '/messages/conversations');
+    convList.innerHTML = conversations.length
+      ? conversations.map(c => `
+        <a class="conv-item" onclick="navigate('/messages/${escapeHtml(c.username)}')">
+          <img src="${c.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(c.username)}')">
+          <div style="flex:1; min-width:0;">
+            <div class="cname">${escapeHtml(c.display_name || c.username)}</div>
+            <div class="clast">${c.last_message ? escapeHtml(c.last_message.content) : ''}</div>
+          </div>
+          ${c.unread_count ? `<span class="cunread">${c.unread_count}</span>` : ''}
+        </a>
+      `).join('')
+      : '<div class="empty-note">No conversations yet.</div>';
+  } catch (err) {
+    convList.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+
+  if (activeUsername) loadThread(activeUsername);
+}
+
+async function loadThread(username) {
+  const pane = document.getElementById('thread-pane');
+  pane.innerHTML = '<div class="empty-note">Loading...</div>';
+  try {
+    const { other, messages } = await api('GET', `/messages/${username}`);
+    pane.innerHTML = `
+      <div class="thread-wrap">
+        <div class="thread-header">
+          <img src="${other.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(other.username)}')">
+          <div>
+            <a class="pname" style="color:var(--text-on-light);" onclick="navigate('/profile/${escapeHtml(other.username)}')">${escapeHtml(other.display_name || other.username)}</a>
+            <div style="font-size:11px; color:var(--text-muted);"><span class="${other.is_online ? 'dot-online' : 'dot-offline'}"></span>${other.is_online ? 'Online now' : 'Offline'}</div>
+          </div>
+        </div>
+        <div class="thread-body" id="thread-body">
+          ${messages.map(m => `
+            <div class="msg-bubble ${m.sender_id === currentUser.id ? 'msg-mine' : 'msg-theirs'}">${escapeHtml(m.content)}</div>
+          `).join('') || '<div class="empty-note">Say hello!</div>'}
+        </div>
+        <div class="thread-input">
+          <input type="text" id="msg-input" placeholder="Type a message...">
+          <button class="btn" onclick="sendMessage('${escapeHtml(username)}')">Send</button>
+        </div>
+      </div>
+    `;
+    const body = document.getElementById('thread-body');
+    body.scrollTop = body.scrollHeight;
+    document.getElementById('msg-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage(username);
+    });
+    refreshUnreadCount();
+  } catch (err) {
+    pane.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function sendMessage(username) {
+  const input = document.getElementById('msg-input');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await api('POST', `/messages/${username}`, { content });
+    input.value = '';
+    loadThread(username);
+    renderMessagesPage(document.getElementById('main-col'), username); // refresh conv list too
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ---------- Groups ----------
+async function renderGroupsPage(main) {
+  main.innerHTML = `
+    <div class="center-col" style="max-width:900px;">
+      <div class="feed-heading" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Groups</span>
+        ${currentUser ? '<button class="btn btn-small" onclick="showCreateGroupForm()">+ Create Group</button>' : ''}
+      </div>
+      <div id="create-group-form"></div>
+      <div class="groups-grid" id="groups-grid" style="padding:0;">Loading...</div>
+    </div>
+  `;
+  renderRightRail();
+  await loadGroupsGrid();
+}
+
+function showCreateGroupForm() {
+  const slot = document.getElementById('create-group-form');
+  if (slot.innerHTML) { slot.innerHTML = ''; return; }
+  slot.innerHTML = `
+    <div class="post-card" style="margin:14px 0;">
+      <input type="text" id="new-group-name" placeholder="Group name" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff;">
+      <input type="text" id="new-group-desc" placeholder="Short description (optional)" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff;">
+      <button class="btn btn-small" onclick="createGroup()">Create</button>
+      <div id="create-group-msg"></div>
+    </div>
+  `;
+}
+
+async function createGroup() {
+  const name = document.getElementById('new-group-name').value.trim();
+  const description = document.getElementById('new-group-desc').value.trim();
+  const msg = document.getElementById('create-group-msg');
+  if (!name) { msg.innerHTML = `<div class="error-msg">Group name is required.</div>`; return; }
+  try {
+    const { group } = await api('POST', '/groups', { name, description });
+    document.getElementById('create-group-form').innerHTML = '';
+    navigate('/groups/' + group.id);
+  } catch (err) {
+    msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadGroupsGrid() {
+  const grid = document.getElementById('groups-grid');
+  try {
+    const { groups } = await api('GET', '/groups');
+    grid.innerHTML = groups.length
+      ? groups.map(g => `
+        <div class="group-card">
+          <h3><a style="color:#fff;" onclick="navigate('/groups/${g.id}')">${escapeHtml(g.name)}</a></h3>
+          <p>${escapeHtml(g.description || 'No description.')}</p>
+          <div class="gmeta">${g.member_count} member${g.member_count === 1 ? '' : 's'}</div>
+          ${currentUser
+            ? (g.is_member
+                ? `<button class="btn-small btn-outline" onclick="leaveGroup(${g.id})">Leave</button>`
+                : `<button class="btn-small btn" onclick="joinGroup(${g.id})">Join</button>`)
+            : ''}
+        </div>
+      `).join('')
+      : '<div class="empty-note">No groups yet. Be the first to create one!</div>';
+  } catch (err) {
+    grid.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function joinGroup(id) {
+  try { await api('POST', `/groups/${id}/join`); loadGroupsGrid(); } catch (err) { alert(err.message); }
+}
+async function leaveGroup(id) {
+  try { await api('POST', `/groups/${id}/leave`); loadGroupsGrid(); } catch (err) { alert(err.message); }
+}
+
+async function renderGroupDetail(main, id) {
+  main.innerHTML = `<div class="center-col">Loading group...</div>`;
+  renderRightRail();
+  try {
+    const { group, members, is_member, is_creator } = await api('GET', `/groups/${id}`);
+    main.innerHTML = `
+      <div class="group-detail-header">
+        <h1 style="margin:0 0 4px;">${escapeHtml(group.name)}</h1>
+        <p style="color:var(--text-muted); font-size:13px; max-width:500px;">${escapeHtml(group.description || '')}</p>
+        <div style="font-size:12px; color:var(--text-muted); margin:8px 0 14px;">${members.length} member${members.length === 1 ? '' : 's'}</div>
+        <div style="display:flex; gap:8px;">
+          ${currentUser ? (
+            is_member
+              ? `<button class="btn btn-outline" onclick="leaveGroup(${group.id}); navigate('/groups')">Leave Group</button>`
+              : `<button class="btn" onclick="joinGroupAndReload(${group.id})">Join Group</button>`
+          ) : ''}
+          ${is_creator ? `<button class="btn btn-danger" onclick="deleteGroupConfirm(${group.id})">Delete Group</button>` : ''}
+        </div>
+      </div>
+      <div class="center-col" style="max-width:680px;">
+        ${is_member ? `
+          <div class="topbar" style="padding:0 0 14px;">
+            <input type="text" id="group-post-input" placeholder="Post something to the group...">
+            <button class="post-btn" onclick="postToGroup(${group.id})">Post</button>
+          </div>
+        ` : ''}
+        <div class="feed-heading">Group Wall</div>
+        <div id="group-posts">Loading...</div>
+        <div class="feed-heading" style="margin-top:30px;">Members</div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          ${members.map(m => `
+            <a onclick="navigate('/profile/${escapeHtml(m.username)}')" style="text-align:center; width:60px;">
+              <img src="${m.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(m.username)}')" style="width:48px; height:48px; border-radius:50%; object-fit:cover; background:#ddd;"><br>
+              <span style="font-size:10px;">${escapeHtml(m.display_name || m.username)}</span>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    loadGroupPosts(group.id);
+  } catch (err) {
+    main.innerHTML = `<div class="center-col"><div class="error-msg">${escapeHtml(err.message)}</div></div>`;
+  }
+}
+
+async function joinGroupAndReload(id) {
+  try { await api('POST', `/groups/${id}/join`); navigate('/groups/' + id); } catch (err) { alert(err.message); }
+}
+
+async function deleteGroupConfirm(id) {
+  if (!confirm('Delete this group permanently? This cannot be undone.')) return;
+  try {
+    await api('DELETE', `/groups/${id}`);
+    navigate('/groups');
+  } catch (err) { alert(err.message); }
+}
+
+async function loadGroupPosts(groupId) {
+  const container = document.getElementById('group-posts');
+  try {
+    const { posts } = await api('GET', `/groups/${groupId}/posts`);
+    container.innerHTML = posts.length
+      ? posts.map(p => `
+        <div class="post-card">
+          <div class="phead">
+            <img src="${p.author_pic}" onerror="avatarFallback(this,'${escapeHtml(p.author_username)}')">
+            <a class="pname" onclick="navigate('/profile/${escapeHtml(p.author_username)}')">${escapeHtml(p.author_display_name || p.author_username)}</a>
+            <span class="ptime">${timeAgo(p.created_at)}</span>
+          </div>
+          <div class="pbody">${escapeHtml(p.content)}</div>
+        </div>
+      `).join('')
+      : '<div class="empty-note">No posts in this group yet.</div>';
+  } catch (err) {
+    container.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function postToGroup(groupId) {
+  const input = document.getElementById('group-post-input');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await api('POST', `/groups/${groupId}/posts`, { content });
+    input.value = '';
+    loadGroupPosts(groupId);
   } catch (err) {
     alert(err.message);
   }
 }
 
 // ---------- Profile page ----------
-async function renderProfile(app, username) {
-  app.innerHTML = 'Loading profile...';
+async function renderProfile(main, username) {
+  main.innerHTML = `<div class="center-col">Loading profile...</div>`;
   let data;
   try {
     data = await api('GET', '/profile/' + username);
   } catch (err) {
-    app.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    main.innerHTML = `<div class="center-col"><div class="error-msg">${escapeHtml(err.message)}</div></div>`;
     return;
   }
 
   const { user, stats, top8 } = data;
   const isOwnProfile = currentUser && currentUser.username === user.username;
 
-  app.innerHTML = `
-    <table class="layout">
-      <tr>
-        <td class="col-left">
-          <div class="box">
-            <div class="profilepic">
-              <img id="profile-pic-img" src="${user.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(user.username)}')">
-              <div class="uname">${escapeHtml(user.display_name || user.username)}</div>
-              <div style="font-size:11px; color:#336699;">@${escapeHtml(user.username)}</div>
-              ${user.mood ? `<div class="status-line">"${escapeHtml(user.mood)}"</div>` : ''}
-              ${isOwnProfile ? `
-                <div style="margin-top:8px;">
-                  <input type="file" id="pic-input" accept="image/png,image/jpeg,image/gif,image/webp" style="font-size:10px; width:100%; margin-bottom:4px;">
-                  <button class="btn-small" onclick="uploadProfilePic()">Change Photo</button>
-                  <div id="pic-msg"></div>
-                </div>
-              ` : `<div id="friend-action" style="margin-top:8px;">...</div>`}
-            </div>
-          </div>
-
-          <div class="box">
-            <div class="box-head">Details</div>
-            <div class="box-body">
-              <table class="stats">
-                <tr><td class="lbl">Location:</td><td>${escapeHtml(user.location || '-')}</td></tr>
-                <tr><td class="lbl">Status:</td><td>${escapeHtml(user.relationship_status || '-')}</td></tr>
-                <tr><td class="lbl">Friends:</td><td>${stats.friends}</td></tr>
-                <tr><td class="lbl">Profile Views:</td><td>${stats.views}</td></tr>
-              </table>
-            </div>
-          </div>
-
-          ${isOwnProfile ? renderEditForm(user) : ''}
-        </td>
-
-        <td class="col-center">
-          <div class="box">
-            <div class="box-head">About Me</div>
-            <div class="box-body">${user.bio ? escapeHtml(user.bio) : '<i>No bio yet.</i>'}</div>
-          </div>
-
-          <div class="box">
-            <div class="box-head">${escapeHtml(user.display_name || user.username)}'s Wall</div>
-            <div class="box-body">
-              ${currentUser ? `
-                <textarea id="wall-input" placeholder="Write something..."></textarea>
-                <button onclick="postToWall('${escapeHtml(user.username)}')">Post</button>
-                <div id="wall-msg"></div>
-                <hr>
-              ` : '<p><i>Log in to post on this wall.</i></p>'}
-              <div id="wall-posts">Loading posts...</div>
-            </div>
-          </div>
-        </td>
-
-        <td class="col-right">
-          <div class="box">
-            <div class="box-head">Top 8 Friends</div>
-            <div class="box-body">
-              ${top8.length ? `<div class="friendsgrid">${top8.map(f => `
-                <div class="friendcard">
-                  <img src="${f.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(f.username)}')"><br>
-                  <a class="fname" onclick="navigate('/profile/${escapeHtml(f.username)}')">${escapeHtml(f.display_name || f.username)}</a>
-                </div>`).join('')}</div>` : '<i>No top friends set yet.</i>'}
-            </div>
-          </div>
-        </td>
-      </tr>
-    </table>
+  main.innerHTML = `
+    <div class="profile-header">
+      <div class="pfp-large"><img id="profile-pic-img" src="${user.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(user.username)}')"></div>
+      <div>
+        <h1>${escapeHtml(user.display_name || user.username)} ${user.is_online ? '<span class="dot-online"></span>' : ''}</h1>
+        <div class="handle">@${escapeHtml(user.username)}</div>
+        ${user.mood ? `<div class="mood">"${escapeHtml(user.mood)}"</div>` : ''}
+      </div>
+    </div>
+    <div class="profile-meta-row">
+      <span>${stats.friends} friends</span>
+      <span>${stats.views} profile views</span>
+      ${user.location ? `<span>${escapeHtml(user.location)}</span>` : ''}
+      ${user.relationship_status ? `<span>${escapeHtml(user.relationship_status)}</span>` : ''}
+    </div>
+    <div class="profile-actions" id="profile-actions">
+      ${isOwnProfile ? `
+        <button class="btn btn-small" onclick="toggleEditForm()">Edit Profile</button>
+        <label class="btn btn-light btn-small" style="cursor:pointer;">
+          Change Photo<input type="file" id="pic-input" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange="uploadProfilePic()">
+        </label>
+      ` : (currentUser ? `<span id="friend-action">...</span><button class="btn btn-light btn-small" onclick="navigate('/messages/${escapeHtml(user.username)}')">Message</button>` : '')}
+    </div>
+    <div id="edit-form-slot"></div>
+    ${user.bio ? `<div class="profile-bio">${escapeHtml(user.bio)}</div>` : ''}
+    ${top8.length ? `
+      <div class="feed-heading" style="padding-left:24px;">Top 8</div>
+      <div class="top8-strip">
+        ${top8.map(f => `
+          <a class="top8-card" onclick="navigate('/profile/${escapeHtml(f.username)}')">
+            <img src="${f.profile_pic_url}" onerror="avatarFallback(this,'${escapeHtml(f.username)}')">
+            <span class="tname">${escapeHtml(f.display_name || f.username)}</span>
+          </a>
+        `).join('')}
+      </div>
+    ` : ''}
+    <div class="center-col">
+      <div class="feed-heading">Wall</div>
+      ${currentUser ? `
+        <div class="topbar" style="padding:0 0 14px;">
+          <input type="text" id="wall-input" placeholder="Write something...">
+          <button class="post-btn" onclick="postToWall('${escapeHtml(user.username)}')">Post</button>
+        </div>
+      ` : ''}
+      <div id="wall-posts">Loading posts...</div>
+    </div>
   `;
 
   loadWall(user.username);
+  renderRightRail();
   if (!isOwnProfile && currentUser) loadFriendAction(user.username);
 }
 
-function renderEditForm(user) {
-  return `
-    <div class="box">
-      <div class="box-head">Edit My Profile</div>
-      <div class="box-body">
-        <div id="edit-msg"></div>
-        <form id="edit-form">
-          <label>Display Name</label>
-          <input type="text" name="display_name" value="${escapeHtml(user.display_name || '')}">
-          <label>Bio</label>
-          <textarea name="bio" style="font-family:Arial; height:60px;">${escapeHtml(user.bio || '')}</textarea>
-          <label>Location</label>
-          <input type="text" name="location" value="${escapeHtml(user.location || '')}">
-          <label>Mood</label>
-          <input type="text" name="mood" value="${escapeHtml(user.mood || '')}">
-          <label>Relationship Status</label>
-          <input type="text" name="relationship_status" value="${escapeHtml(user.relationship_status || '')}">
-          <button type="submit">Save Changes</button>
-        </form>
-      </div>
+function toggleEditForm() {
+  const slot = document.getElementById('edit-form-slot');
+  if (slot.innerHTML) { slot.innerHTML = ''; return; }
+  fetchAndRenderEditForm();
+}
+
+async function fetchAndRenderEditForm() {
+  const slot = document.getElementById('edit-form-slot');
+  const { user } = await api('GET', `/profile/${currentUser.username}`);
+  slot.innerHTML = `
+    <div class="post-card" style="margin:0 24px 18px; max-width:480px;">
+      <div id="edit-msg"></div>
+      <form id="edit-form">
+        <label>Display Name</label>
+        <input type="text" name="display_name" value="${escapeHtml(user.display_name || '')}" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff;">
+        <label>Bio</label>
+        <textarea name="bio" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff; height:60px;">${escapeHtml(user.bio || '')}</textarea>
+        <label>Location</label>
+        <input type="text" name="location" value="${escapeHtml(user.location || '')}" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff;">
+        <label>Mood</label>
+        <input type="text" name="mood" value="${escapeHtml(user.mood || '')}" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff;">
+        <label>Relationship Status</label>
+        <input type="text" name="relationship_status" value="${escapeHtml(user.relationship_status || '')}" style="background:#1a1512; border:1px solid var(--border-subtle); color:#fff;">
+        <button class="btn btn-small" type="submit">Save</button>
+      </form>
     </div>
   `;
 }
@@ -803,10 +1291,8 @@ document.addEventListener('submit', async (e) => {
   const msg = document.getElementById('edit-msg');
   try {
     await api('PUT', '/profile', {
-      display_name: fd.get('display_name'),
-      bio: fd.get('bio'),
-      location: fd.get('location'),
-      mood: fd.get('mood'),
+      display_name: fd.get('display_name'), bio: fd.get('bio'),
+      location: fd.get('location'), mood: fd.get('mood'),
       relationship_status: fd.get('relationship_status')
     });
     msg.innerHTML = `<div class="success-msg">Saved!</div>`;
@@ -820,11 +1306,9 @@ async function loadWall(username) {
   const container = document.getElementById('wall-posts');
   try {
     const { posts } = await api('GET', `/profile/${username}/wall`);
-    if (!posts.length) {
-      container.innerHTML = '<i>No posts yet. Be the first!</i>';
-      return;
-    }
-    container.innerHTML = posts.map(p => renderPostHtml(p, false)).join('');
+    container.innerHTML = posts.length
+      ? posts.map(p => renderPostHtml(p, false)).join('')
+      : '<div class="empty-note">No posts yet.</div>';
   } catch (err) {
     container.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
   }
@@ -832,14 +1316,12 @@ async function loadWall(username) {
 
 async function postToWall(username) {
   const input = document.getElementById('wall-input');
-  const msg = document.getElementById('wall-msg');
   try {
     await api('POST', `/profile/${username}/wall`, { content: input.value });
     input.value = '';
-    msg.innerHTML = '';
     loadWall(username);
   } catch (err) {
-    msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    alert(err.message);
   }
 }
 
@@ -849,86 +1331,63 @@ async function loadFriendAction(username) {
   if (!slot) return;
   try {
     const { status } = await api('GET', `/friends/${username}/status`);
-    slot.innerHTML = friendActionHtml(username, status);
-  } catch (err) {
-    slot.innerHTML = '';
-  }
+    slot.outerHTML = friendActionHtml(username, status);
+  } catch (err) { slot.outerHTML = ''; }
 }
 
 function friendActionHtml(username, status) {
+  const id = 'friend-action';
   switch (status) {
     case 'friends':
-      return `<button class="btn-grey btn-small" onclick="unfriend('${escapeHtml(username)}')">✓ Friends (remove)</button>`;
+      return `<button id="${id}" class="btn btn-outline btn-small" onclick="unfriend('${escapeHtml(username)}')">✓ Friends</button>`;
     case 'pending_sent':
-      return `<button class="btn-grey btn-small" onclick="cancelRequest('${escapeHtml(username)}')">Request Sent (cancel)</button>`;
+      return `<button id="${id}" class="btn btn-outline btn-small" onclick="cancelRequest('${escapeHtml(username)}')">Request Sent</button>`;
     case 'pending_received':
-      return `
-        <button class="btn-green btn-small" onclick="respondAndReload('${escapeHtml(username)}','accept')">Accept Request</button>
-        <button class="btn-grey btn-small" onclick="respondAndReload('${escapeHtml(username)}','reject')">Decline</button>
-      `;
+      return `<span id="${id}" style="display:inline-flex; gap:6px;">
+        <button class="btn btn-small" onclick="respondAndReload('${escapeHtml(username)}','accept')">Accept</button>
+        <button class="btn btn-outline btn-small" onclick="respondAndReload('${escapeHtml(username)}','reject')">Decline</button>
+      </span>`;
     default:
-      return `<button class="btn-pink btn-small" onclick="addFriend('${escapeHtml(username)}')">+ Add Friend</button>`;
+      return `<button id="${id}" class="btn btn-small" onclick="addFriend('${escapeHtml(username)}')">+ Add Friend</button>`;
   }
 }
 
 async function addFriend(username) {
-  try {
-    await api('POST', `/friends/${username}/request`);
-    loadFriendAction(username);
-  } catch (err) {
-    alert(err.message);
-  }
+  try { await api('POST', `/friends/${username}/request`); loadFriendActionFresh(username); } catch (err) { alert(err.message); }
 }
-
 async function cancelRequest(username) {
-  try {
-    await api('POST', `/friends/${username}/reject`);
-    loadFriendAction(username);
-  } catch (err) {
-    alert(err.message);
-  }
+  try { await api('POST', `/friends/${username}/reject`); loadFriendActionFresh(username); } catch (err) { alert(err.message); }
 }
-
 async function unfriend(username) {
   if (!confirm(`Remove ${username} as a friend?`)) return;
-  try {
-    await api('POST', `/friends/${username}/remove`);
-    loadFriendAction(username);
-  } catch (err) {
-    alert(err.message);
-  }
+  try { await api('POST', `/friends/${username}/remove`); loadFriendActionFresh(username); } catch (err) { alert(err.message); }
 }
-
 async function respondAndReload(username, action) {
+  try { await api('POST', `/friends/${username}/${action}`); loadFriendActionFresh(username); } catch (err) { alert(err.message); }
+}
+async function loadFriendActionFresh(username) {
   try {
-    await api('POST', `/friends/${username}/${action}`);
-    loadFriendAction(username);
-  } catch (err) {
-    alert(err.message);
-  }
+    const { status } = await api('GET', `/friends/${username}/status`);
+    const el = document.getElementById('friend-action');
+    if (el) el.outerHTML = friendActionHtml(username, status);
+  } catch (e) { /* ignore */ }
 }
 
 // ---------- Profile picture upload ----------
 async function uploadProfilePic() {
   const input = document.getElementById('pic-input');
-  const msg = document.getElementById('pic-msg');
-  if (!input.files || !input.files[0]) {
-    msg.innerHTML = `<div class="error-msg">Choose a file first.</div>`;
-    return;
-  }
+  if (!input.files || !input.files[0]) return;
   const formData = new FormData();
   formData.append('picture', input.files[0]);
-
-  msg.innerHTML = '<i>Uploading...</i>';
   try {
     const res = await fetch(API + '/profile/picture', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed.');
     currentUser = data.user;
-    msg.innerHTML = `<div class="success-msg">Photo updated!</div>`;
     document.getElementById('profile-pic-img').src = data.user.profile_pic_url + '?t=' + Date.now();
+    renderSidebar();
   } catch (err) {
-    msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    alert(err.message);
   }
 }
 
@@ -936,6 +1395,8 @@ async function uploadProfilePic() {
 (async function init() {
   try { await refreshMe(); } catch (e) { /* not logged in */ }
   render();
+  // Light polling so presence/unread counts feel "real-time-ish" without websockets
+  setInterval(() => { if (currentUser) refreshUnreadCount(); }, 30000);
 })();
 </script>
 

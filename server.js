@@ -62,10 +62,27 @@ function requireLogin(req, res, next) {
   next();
 }
 
+// Lightweight presence tracking: every request from a logged-in user bumps
+// their last_active timestamp. "Online" is then just "active in the last N minutes".
+const PRESENCE_WINDOW_MINUTES = 5;
+app.use((req, res, next) => {
+  if (req.session.userId) {
+    db.run(`UPDATE users SET last_active = CURRENT_TIMESTAMP WHERE id = ?`, [req.session.userId]);
+  }
+  next();
+});
+
 function publicUser(row) {
   if (!row) return null;
   const { password_hash, email, ...safe } = row;
   return safe;
+}
+
+// A user counts as "online" if they've made a request in the last few minutes
+function isOnline(lastActiveStr) {
+  if (!lastActiveStr) return false;
+  const lastActive = new Date(lastActiveStr + 'Z').getTime();
+  return (Date.now() - lastActive) < PRESENCE_WINDOW_MINUTES * 60 * 1000;
 }
 
 // ---------- Auth routes ----------
@@ -160,7 +177,7 @@ app.get('/api/profile/:username', (req, res) => {
   );
 
   res.json({
-    user: publicUser(profileUser),
+    user: { ...publicUser(profileUser), is_online: isOnline(profileUser.last_active) },
     stats: { friends: friendCount, views: viewCount },
     top8
   });
@@ -331,6 +348,23 @@ app.get('/api/friends/requests', requireLogin, (req, res) => {
     [req.session.userId]
   );
   res.json({ requests });
+});
+
+// List my accepted friends, with online status, online-first
+app.get('/api/friends', requireLogin, (req, res) => {
+  const friends = db.all(
+    `SELECT u.username, u.display_name, u.profile_pic_url, u.last_active
+     FROM friendships f JOIN users u ON u.id = f.friend_id
+     WHERE f.user_id = ? AND f.status = 'accepted'`,
+    [req.session.userId]
+  ).map(f => ({ ...f, is_online: isOnline(f.last_active) }));
+
+  friends.sort((a, b) => {
+    if (a.is_online !== b.is_online) return a.is_online ? -1 : 1;
+    return new Date(b.last_active || 0) - new Date(a.last_active || 0);
+  });
+
+  res.json({ friends });
 });
 
 // Set Top 8 order
@@ -519,6 +553,224 @@ app.get('/api/posts/:id/likes', (req, res) => {
     liked = !!db.get('SELECT id FROM likes WHERE post_id = ? AND user_id = ?', [req.params.id, req.session.userId]);
   }
   res.json({ count, liked });
+});
+
+// ---------- Direct Messages ----------
+
+// List my conversations (one row per other user I've exchanged messages with,
+// showing the most recent message and unread count)
+app.get('/api/messages/conversations', requireLogin, (req, res) => {
+  const me = req.session.userId;
+  const partners = db.all(
+    `SELECT DISTINCT CASE WHEN sender_id = ? THEN recipient_id ELSE sender_id END AS other_id
+     FROM messages WHERE sender_id = ? OR recipient_id = ?`,
+    [me, me, me]
+  );
+
+  const conversations = partners.map(({ other_id }) => {
+    const other = db.get('SELECT username, display_name, profile_pic_url, last_active FROM users WHERE id = ?', [other_id]);
+    const lastMsg = db.get(
+      `SELECT content, created_at, sender_id FROM messages
+       WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)
+       ORDER BY created_at DESC LIMIT 1`,
+      [me, other_id, other_id, me]
+    );
+    const unreadCount = db.get(
+      `SELECT COUNT(*) AS count FROM messages WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL`,
+      [other_id, me]
+    ).count;
+    return {
+      username: other.username,
+      display_name: other.display_name,
+      profile_pic_url: other.profile_pic_url,
+      is_online: isOnline(other.last_active),
+      last_message: lastMsg,
+      unread_count: unreadCount
+    };
+  });
+
+  conversations.sort((a, b) => new Date(b.last_message?.created_at || 0) - new Date(a.last_message?.created_at || 0));
+  res.json({ conversations });
+});
+
+// Get the message thread with a specific user, and mark their messages to me as read
+app.get('/api/messages/:username', requireLogin, (req, res) => {
+  const other = db.get('SELECT id, username, display_name, profile_pic_url, last_active FROM users WHERE username = ?', [req.params.username]);
+  if (!other) return res.status(404).json({ error: 'User not found.' });
+
+  const me = req.session.userId;
+  const messages = db.all(
+    `SELECT id, sender_id, recipient_id, content, created_at, read_at FROM messages
+     WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)
+     ORDER BY created_at ASC`,
+    [me, other.id, other.id, me]
+  );
+
+  db.run(
+    `UPDATE messages SET read_at = CURRENT_TIMESTAMP WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL`,
+    [other.id, me]
+  );
+
+  res.json({
+    other: { username: other.username, display_name: other.display_name, profile_pic_url: other.profile_pic_url, is_online: isOnline(other.last_active) },
+    messages
+  });
+});
+
+// Send a message to a user
+app.post('/api/messages/:username', requireLogin, (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: 'Message cannot be empty.' });
+  if (content.length > 2000) return res.status(400).json({ error: 'Message is too long.' });
+
+  const other = db.get('SELECT id FROM users WHERE username = ?', [req.params.username]);
+  if (!other) return res.status(404).json({ error: 'User not found.' });
+  if (other.id === req.session.userId) return res.status(400).json({ error: "You can't message yourself." });
+
+  const result = db.run(
+    `INSERT INTO messages (sender_id, recipient_id, content) VALUES (?, ?, ?)`,
+    [req.session.userId, other.id, content.trim()]
+  );
+  const message = db.get('SELECT id, sender_id, recipient_id, content, created_at, read_at FROM messages WHERE id = ?', [result.lastInsertRowid]);
+  res.status(201).json({ message });
+});
+
+// Unread message count across all conversations (for a nav badge)
+app.get('/api/messages/unread/count', requireLogin, (req, res) => {
+  const count = db.get(
+    `SELECT COUNT(*) AS count FROM messages WHERE recipient_id = ? AND read_at IS NULL`,
+    [req.session.userId]
+  ).count;
+  res.json({ count });
+});
+
+// ---------- Groups ----------
+
+// List all groups (with member count), optionally filtered by search term
+app.get('/api/groups', (req, res) => {
+  const q = (req.query.q || '').trim();
+  const groups = db.all(
+    q
+      ? `SELECT g.*, (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count
+         FROM groups g WHERE g.name LIKE ? ORDER BY g.created_at DESC`
+      : `SELECT g.*, (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count
+         FROM groups g ORDER BY g.created_at DESC`,
+    q ? [`%${q}%`] : []
+  );
+
+  if (req.session.userId) {
+    const myGroupIds = new Set(
+      db.all(`SELECT group_id FROM group_members WHERE user_id = ?`, [req.session.userId]).map(r => r.group_id)
+    );
+    groups.forEach(g => { g.is_member = myGroupIds.has(g.id); });
+  }
+
+  res.json({ groups });
+});
+
+// Create a new group (creator is automatically the first member)
+app.post('/api/groups', requireLogin, (req, res) => {
+  const { name, description } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Group name is required.' });
+  if (name.length > 60) return res.status(400).json({ error: 'Group name is too long.' });
+
+  let result;
+  try {
+    result = db.run(
+      `INSERT INTO groups (name, description, creator_id) VALUES (?, ?, ?)`,
+      [name.trim(), (description || '').trim(), req.session.userId]
+    );
+  } catch (e) {
+    return res.status(409).json({ error: 'A group with that name already exists.' });
+  }
+
+  db.run(`INSERT INTO group_members (group_id, user_id) VALUES (?, ?)`, [result.lastInsertRowid, req.session.userId]);
+  const group = db.get('SELECT * FROM groups WHERE id = ?', [result.lastInsertRowid]);
+  res.status(201).json({ group });
+});
+
+// Get a single group's details, members, and recent posts
+app.get('/api/groups/:id', (req, res) => {
+  const group = db.get('SELECT * FROM groups WHERE id = ?', [req.params.id]);
+  if (!group) return res.status(404).json({ error: 'Group not found.' });
+
+  const members = db.all(
+    `SELECT u.username, u.display_name, u.profile_pic_url
+     FROM group_members gm JOIN users u ON u.id = gm.user_id
+     WHERE gm.group_id = ? ORDER BY gm.joined_at ASC`,
+    [req.params.id]
+  );
+
+  const isMember = req.session.userId
+    ? !!db.get('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?', [req.params.id, req.session.userId])
+    : false;
+
+  res.json({ group, members, member_count: members.length, is_member: isMember, is_creator: group.creator_id === req.session.userId });
+});
+
+// Join a group
+app.post('/api/groups/:id/join', requireLogin, (req, res) => {
+  const group = db.get('SELECT id FROM groups WHERE id = ?', [req.params.id]);
+  if (!group) return res.status(404).json({ error: 'Group not found.' });
+
+  try {
+    db.run(`INSERT INTO group_members (group_id, user_id) VALUES (?, ?)`, [req.params.id, req.session.userId]);
+  } catch (e) {
+    return res.status(409).json({ error: 'You are already in this group.' });
+  }
+  res.status(201).json({ ok: true });
+});
+
+// Leave a group
+app.post('/api/groups/:id/leave', requireLogin, (req, res) => {
+  const result = db.run(`DELETE FROM group_members WHERE group_id = ? AND user_id = ?`, [req.params.id, req.session.userId]);
+  if (result.changes === 0) return res.status(404).json({ error: 'You are not in this group.' });
+  res.json({ ok: true });
+});
+
+// Delete a group (creator only)
+app.delete('/api/groups/:id', requireLogin, (req, res) => {
+  const group = db.get('SELECT * FROM groups WHERE id = ?', [req.params.id]);
+  if (!group) return res.status(404).json({ error: 'Group not found.' });
+  if (group.creator_id !== req.session.userId) {
+    return res.status(403).json({ error: 'Only the group creator can delete this group.' });
+  }
+  db.run(`DELETE FROM group_posts WHERE group_id = ?`, [req.params.id]);
+  db.run(`DELETE FROM group_members WHERE group_id = ?`, [req.params.id]);
+  db.run(`DELETE FROM groups WHERE id = ?`, [req.params.id]);
+  res.json({ ok: true });
+});
+
+// Get a group's wall posts
+app.get('/api/groups/:id/posts', (req, res) => {
+  const posts = db.all(
+    `SELECT p.id, p.content, p.created_at, u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
+     FROM group_posts p JOIN users u ON u.id = p.author_id
+     WHERE p.group_id = ? ORDER BY p.created_at DESC LIMIT 100`,
+    [req.params.id]
+  );
+  res.json({ posts });
+});
+
+// Post to a group's wall (members only)
+app.post('/api/groups/:id/posts', requireLogin, (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: 'Post cannot be empty.' });
+  if (content.length > 1000) return res.status(400).json({ error: 'Post is too long.' });
+
+  const isMember = !!db.get('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  if (!isMember) return res.status(403).json({ error: 'Only group members can post.' });
+
+  const result = db.run(
+    `INSERT INTO group_posts (group_id, author_id, content) VALUES (?, ?, ?)`,
+    [req.params.id, req.session.userId, content.trim()]
+  );
+  const post = db.get(
+    `SELECT p.id, p.content, p.created_at, u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
+     FROM group_posts p JOIN users u ON u.id = p.author_id WHERE p.id = ?`,
+    [result.lastInsertRowid]
+  );
+  res.status(201).json({ post });
 });
 
 // Fallback to index.html for any non-API route (simple SPA-ish behavior)

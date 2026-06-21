@@ -75,6 +75,49 @@ db.exec(`
     FOREIGN KEY (viewer_id) REFERENCES users(id),
     FOREIGN KEY (viewed_id) REFERENCES users(id)
   );
+
+  -- Direct messages: one row per message, conversation identity is implied
+  -- by the unordered pair (user_a, user_b) where user_a < user_b always,
+  -- so each pair of users has exactly one thread.
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    read_at TEXT DEFAULT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (recipient_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    description TEXT DEFAULT '',
+    creator_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (creator_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    joined_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(group_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS group_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id),
+    FOREIGN KEY (author_id) REFERENCES users(id)
+  );
 `);
 
 // ---------- Migrations for databases created before this column existed ----------
@@ -82,6 +125,11 @@ db.exec(`
 const commentCols = db.all(`PRAGMA table_info(comments)`).map(c => c.name);
 if (!commentCols.includes('parent_comment_id')) {
   db.exec(`ALTER TABLE comments ADD COLUMN parent_comment_id INTEGER DEFAULT NULL`);
+}
+
+const userCols = db.all(`PRAGMA table_info(users)`).map(c => c.name);
+if (!userCols.includes('last_active')) {
+  db.exec(`ALTER TABLE users ADD COLUMN last_active TEXT DEFAULT NULL`);
 }
 
 module.exports = db;
