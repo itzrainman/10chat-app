@@ -3,6 +3,8 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const db = require('./db');
 
 const app = express();
@@ -11,6 +13,36 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------- Profile picture upload setup ----------
+// Uploaded files are written to UPLOAD_DIR (overridable via env var, same
+// pattern as DB_PATH, so a Railway volume can keep them across redeploys).
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'public', 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// Serve uploaded files even if UPLOAD_DIR is outside public/ (e.g. a Railway volume)
+app.use('/uploads', express.static(UPLOAD_DIR));
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `user${req.session.userId}_${Date.now()}${ext}`);
+  }
+});
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_TYPES.includes(file.mimetype)) {
+      return cb(new Error('Only JPG, PNG, GIF or WEBP images are allowed.'));
+    }
+    cb(null, true);
+  }
+});
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-only-secret-change-me',
@@ -145,6 +177,31 @@ app.put('/api/profile', requireLogin, (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
+// Upload a new profile picture
+app.post('/api/profile/picture', requireLogin, (req, res) => {
+  upload.single('picture')(req, res, (err) => {
+    if (err) {
+      // Multer errors (file too big, wrong type, etc.) land here
+      return res.status(400).json({ error: err.message || 'Upload failed.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file was uploaded.' });
+    }
+
+    // Delete the old uploaded picture, if there was one, to avoid piling up files
+    const existing = db.get('SELECT profile_pic_url FROM users WHERE id = ?', [req.session.userId]);
+    if (existing && existing.profile_pic_url && existing.profile_pic_url.startsWith('/uploads/')) {
+      const oldPath = path.join(UPLOAD_DIR, path.basename(existing.profile_pic_url));
+      fs.unlink(oldPath, () => {}); // best-effort, ignore errors
+    }
+
+    const newUrl = `/uploads/${req.file.filename}`;
+    db.run('UPDATE users SET profile_pic_url = ? WHERE id = ?', [newUrl, req.session.userId]);
+    const user = db.get('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    res.json({ user: publicUser(user) });
+  });
+});
+
 // ---------- Wall posts ----------
 
 // Get wall posts for a profile
@@ -192,6 +249,26 @@ app.delete('/api/posts/:id', requireLogin, (req, res) => {
   }
   db.run('DELETE FROM posts WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
+});
+
+// ---------- Home feed ----------
+
+// Recent activity across the whole site (most recent wall posts, newest first).
+// Works for logged-out visitors too, since it's public content.
+app.get('/api/feed', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+  const posts = db.all(
+    `SELECT p.id, p.content, p.created_at,
+            author.username AS author_username, author.display_name AS author_display_name, author.profile_pic_url AS author_pic,
+            profileowner.username AS profile_username, profileowner.display_name AS profile_display_name
+     FROM posts p
+     JOIN users author ON author.id = p.author_id
+     JOIN users profileowner ON profileowner.id = p.profile_user_id
+     ORDER BY p.created_at DESC
+     LIMIT ?`,
+    [limit]
+  );
+  res.json({ posts });
 });
 
 // ---------- Friendships ----------
