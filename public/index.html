@@ -420,6 +420,11 @@ function renderSidebar() {
     <a class="sidebar-nav-item" onclick="navigate('/favourites')">
       <span class="dot">★</span> Favourites
     </a>
+    ${currentUser.is_admin ? `
+      <a class="sidebar-nav-item" onclick="navigate('/admin')">
+        <span class="dot">⚙</span> Admin
+      </a>
+    ` : ''}
   `;
 
   bottom.innerHTML = `<a class="sidebar-nav-item" onclick="doLogout()"><span class="dot">⏏</span> Logout</a>`;
@@ -466,6 +471,7 @@ async function render() {
   if (path === '/groups') return renderGroupsPage(main);
   if (path.startsWith('/groups/')) return renderGroupDetail(main, path.split('/groups/')[1]);
   if (path === '/favourites') return renderFavouritesPage(main);
+  if (path === '/admin') return renderAdminPage(main);
   if (path === '/search') return renderSearch(main);
   if (path.startsWith('/profile/')) return renderProfile(main, decodeURIComponent(path.split('/profile/')[1]));
   return renderHome(main);
@@ -937,6 +943,72 @@ async function toggleFavourite(username) {
   } catch (err) {
     alert(err.message);
   }
+}
+
+// ---------- Admin ----------
+async function renderAdminPage(main) {
+  if (!currentUser) { navigate('/login'); return; }
+  if (!currentUser.is_admin) {
+    main.innerHTML = `<div class="center-col"><div class="error-msg">Admin access required.</div></div>`;
+    return;
+  }
+
+  main.innerHTML = `
+    <div class="center-col" style="max-width:760px;">
+      <div class="feed-heading">Admin Dashboard</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:18px;">
+        Aggregate stats only — no emails, passwords, or personal details are shown here.
+      </p>
+      <div id="admin-stats" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:24px;">Loading...</div>
+      <div class="feed-heading">All Users</div>
+      <div id="admin-users">Loading...</div>
+    </div>
+  `;
+
+  try {
+    const stats = await api('GET', '/admin/stats');
+    document.getElementById('admin-stats').innerHTML = `
+      ${adminStatCard('Total Users', stats.total_users)}
+      ${adminStatCard('Online Now', stats.online_now)}
+      ${adminStatCard('Signups Today', stats.signups_today)}
+      ${adminStatCard('Signups (7 days)', stats.signups_this_week)}
+      ${adminStatCard('Total Posts', stats.total_posts)}
+      ${adminStatCard('Total Groups', stats.total_groups)}
+      ${adminStatCard('Total Messages', stats.total_messages)}
+    `;
+  } catch (err) {
+    document.getElementById('admin-stats').innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+
+  try {
+    const { users } = await api('GET', '/admin/users');
+    document.getElementById('admin-users').innerHTML = users.length ? `
+      <div class="post-card" style="padding:0; overflow:hidden;">
+        ${users.map(u => `
+          <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--border-subtle);">
+            <span class="${u.is_online ? 'dot-online' : 'dot-offline'}"></span>
+            <span style="flex:1;">
+              <a style="color:#fff; font-weight:600;" onclick="navigate('/profile/${escapeHtml(u.username)}')">${escapeHtml(u.display_name || u.username)}</a>
+              <span style="color:var(--text-muted); font-size:11px;"> @${escapeHtml(u.username)}</span>
+              ${u.is_admin ? '<span style="font-size:10px; color:var(--text-muted);"> · admin</span>' : ''}
+            </span>
+            <span style="font-size:11px; color:var(--text-muted);">joined ${new Date(u.created_at + 'Z').toLocaleDateString()}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '<div class="empty-note">No users yet.</div>';
+  } catch (err) {
+    document.getElementById('admin-users').innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function adminStatCard(label, value) {
+  return `
+    <div class="rail-card" style="text-align:center;">
+      <div style="font-size:22px; font-weight:700;">${value}</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escapeHtml(label)}</div>
+    </div>
+  `;
 }
 
 // ---------- Messages ----------

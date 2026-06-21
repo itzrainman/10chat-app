@@ -62,6 +62,17 @@ function requireLogin(req, res, next) {
   next();
 }
 
+function requireAdmin(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'You must be logged in.' });
+  }
+  const user = db.get('SELECT is_admin FROM users WHERE id = ?', [req.session.userId]);
+  if (!user || !user.is_admin) {
+    return res.status(403).json({ error: 'Admin access required.' });
+  }
+  next();
+}
+
 // Lightweight presence tracking: every request from a logged-in user bumps
 // their last_active timestamp. "Online" is then just "active in the last N minutes".
 const PRESENCE_WINDOW_MINUTES = 5;
@@ -771,6 +782,51 @@ app.post('/api/groups/:id/posts', requireLogin, (req, res) => {
     [result.lastInsertRowid]
   );
   res.status(201).json({ post });
+});
+
+// ---------- Admin (no personal details exposed: no emails, no password hashes) ----------
+
+// High-level counts: total users, online right now, signups today/this week
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
+  const totalUsers = db.get('SELECT COUNT(*) AS count FROM users').count;
+  const totalPosts = db.get('SELECT COUNT(*) AS count FROM posts').count;
+  const totalGroups = db.get('SELECT COUNT(*) AS count FROM groups').count;
+  const totalMessages = db.get('SELECT COUNT(*) AS count FROM messages').count;
+
+  const allUsers = db.all('SELECT last_active FROM users');
+  const onlineNow = allUsers.filter(u => isOnline(u.last_active)).length;
+
+  const signupsToday = db.get(
+    `SELECT COUNT(*) AS count FROM users WHERE date(created_at) = date('now')`
+  ).count;
+  const signupsThisWeek = db.get(
+    `SELECT COUNT(*) AS count FROM users WHERE created_at >= datetime('now', '-7 days')`
+  ).count;
+
+  res.json({
+    total_users: totalUsers,
+    online_now: onlineNow,
+    signups_today: signupsToday,
+    signups_this_week: signupsThisWeek,
+    total_posts: totalPosts,
+    total_groups: totalGroups,
+    total_messages: totalMessages
+  });
+});
+
+// List of users — username, display name, signup date, online status only.
+// Explicitly never includes email, password_hash, bio, or any other personal field.
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  const users = db.all(
+    `SELECT username, display_name, created_at, last_active, is_admin FROM users ORDER BY created_at DESC`
+  ).map(u => ({
+    username: u.username,
+    display_name: u.display_name,
+    created_at: u.created_at,
+    is_online: isOnline(u.last_active),
+    is_admin: !!u.is_admin
+  }));
+  res.json({ users });
 });
 
 // Fallback to index.html for any non-API route (simple SPA-ish behavior)

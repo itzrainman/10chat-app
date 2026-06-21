@@ -20,6 +20,7 @@ db.exec(`
     mood TEXT DEFAULT '',
     relationship_status TEXT DEFAULT '',
     profile_pic_url TEXT DEFAULT '/images/default-avatar.png',
+    is_admin INTEGER DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -130,6 +131,9 @@ if (!commentCols.includes('parent_comment_id')) {
 const userCols = db.all(`PRAGMA table_info(users)`).map(c => c.name);
 if (!userCols.includes('last_active')) {
   db.exec(`ALTER TABLE users ADD COLUMN last_active TEXT DEFAULT NULL`);
+}
+if (!userCols.includes('is_admin')) {
+  db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`);
 }
 
 module.exports = db;

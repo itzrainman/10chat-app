@@ -47,34 +47,85 @@ To start fresh, just delete `10chat.sqlite` and restart the server.
 - **Sign up / log in / log out** — real password hashing (bcrypt), real sessions (cookies)
 - **Profiles** — bio, location, mood, relationship status, all editable when you're
   viewing your own profile
-- **Wall posts** — post on your own or someone else's wall, delete posts you wrote
-  or posts on your own wall
-- **Friend requests** — send a request, accept it, see friend counts
-- **Top 8** — backend route exists (`POST /api/friends/top8`) but there's no UI for
-  reordering yet — see "What's next" below
+- **Profile picture uploads** — JPG/PNG/GIF/WEBP, 5MB max, old picture is deleted
+  automatically when you upload a new one
+- **Home feed** — recent wall posts from across the whole site, newest first
+- **User search** — search bar in the sidebar, finds users by username or display
+  name, links straight to their profile
+- **Friend requests, full flow** — send, accept, decline, cancel a sent request,
+  or remove an existing friend. The profile page shows the right button for
+  whatever the current relationship actually is (none / pending / friends)
+- **Wall posts, likes, threaded comments** — post on your own or someone else's
+  wall, like/unlike, comment, reply to a specific comment one level deep,
+  delete your own posts/comments
+- **Favourites (Top 8)** — a dedicated page to pick up to 8 friends to feature
+  on your profile, with a one-click toggle per friend
+- **Direct messages** — real one-on-one conversations, a conversation list with
+  unread counts, messages marked as read when you open a thread
+- **Groups** — create a group, join/leave, each group has its own wall that
+  members can post to, only the creator can delete the group
+- **Online/offline presence** — anyone active in the last 5 minutes shows as
+  "online" (a green dot) wherever they appear: friends list, profile, message
+  threads. This re-checks every 30 seconds while you have the app open, and
+  updates instantly whenever you make any request yourself
 - **Profile view tracking** — every time you visit someone's profile while logged
   in, it logs a view and the view count goes up
 
+## Design
+
+The UI is a full-width three-column layout (dark sidebar, light center feed,
+dark right rail) rather than the boxed 800x600 retro look from earlier
+versions. Color palette: `#f5ede9` (light background), `#0d0907` (dark
+surfaces/cards), `#ffffff` (text on dark). It collapses to two columns on
+medium screens and a single column on narrow/mobile screens.
+
 ## What's next (left for you to build, or ask me to add)
 
-These are the natural next steps, roughly in order of how much it'll feel like
-"the real thing":
+1. **A "friends only" feed option** — right now the home feed shows posts from
+   everyone site-wide; filtering to just your friends is a natural next step
+2. **Real-time push updates** — presence and unread counts currently refresh
+   on a 30-second poll, not instantly. True real-time would need WebSockets
+   (Socket.io) — doable, but a bigger change
+3. **Notifications** — no notification center yet for new friend requests,
+   likes, or comments; you'd only see them by checking the relevant page
+4. **Deploying it somewhere public** — already covered if you followed the
+   GitHub/Railway steps. Worth knowing: if you set `UPLOAD_DIR` to a path on
+   your Railway volume (the same one used for `DB_PATH`), uploaded profile
+   pictures will survive redeploys too — otherwise they'll be wiped just like
+   the SQLite file would be without a volume
 
-1. **Profile picture uploads** — `multer` is already installed for this, just
-   needs a route + a file input in the UI
-2. **A UI for the Top 8 friends reordering** (drag and drop, or simple dropdowns)
-3. **Friend request UI** — right now you can send a request via the API but
-   there's no inbox screen to see/accept incoming requests
-4. **Comments on individual posts** — the comments table and API routes exist,
-   just needs wiring into the frontend
-5. **Real-time stuff** — notifications when someone friends you or comments,
-   would need WebSockets (Socket.io) eventually
-6. **Deploying it somewhere public** — right now this only runs on your machine.
-   Render, Railway, or Fly.io can all host this almost as-is; SQLite works fine
-   for a small personal project but you'd eventually want Postgres if more than
-   a few people use it at once
+## Admin access
 
-## A few things worth knowing as you keep building
+There's a simple admin dashboard at `/admin` that shows aggregate stats and a
+user list — **no emails, no password hashes, no personal details**, just
+usernames, display names, join dates, and online status. It exists so you can
+check the site is actually being used without exposing anyone's private data.
+
+There's deliberately no signup flow or API route that grants admin — it can
+only be set by running a script directly where the server runs, so a regular
+user could never grant it to themselves.
+
+**To make yourself an admin, locally:**
+```
+node make-admin.js your_username
+```
+
+**On Railway:** open a shell for your service (Railway's dashboard has a
+"shell" / "run command" option under your service, or use the Railway CLI
+with `railway run`), then run the same command in the project directory:
+```
+railway run node make-admin.js your_username
+```
+
+To revoke admin from someone: `node make-admin.js their_username revoke`
+
+What's on the dashboard:
+- Total users, how many are online right now, signups today / this week
+- Total posts, groups, and messages site-wide (counts only, not content)
+- A list of every user: username, display name, join date, online dot, and
+  whether they're an admin
+
+
 
 - **Passwords are never stored in plain text.** `bcryptjs` hashes them before
   they touch the database, and the hash is never sent back to the frontend.
@@ -87,3 +138,7 @@ These are the natural next steps, roughly in order of how much it'll feel like
 - **No rate limiting yet.** Right now someone could hammer `/api/login` with
   guesses. Worth adding something like `express-rate-limit` before this is
   genuinely public.
+- **If `npm start` ever fails with "database is locked"**, it usually means a
+  previous server process didn't shut down cleanly and left a
+  `10chat.sqlite.lock` folder behind. Stop any running `node server.js`
+  process and delete that lock folder, then start again.
