@@ -1,0 +1,17 @@
+{
+  "name": "10chat",
+  "version": "1.0.0",
+  "description": "10Chat - early 2000s style social network",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "multer": "^2.2.0",
+    "node-sqlite3-wasm": "^0.8.32"
+  }
+}

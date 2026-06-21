@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>10Chat.com</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background-color: #6699CC;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #1A1A3D;
+  }
+  a { color: #0033CC; text-decoration: none; cursor: pointer; }
+  a:hover { text-decoration: underline; color: #FF1493; }
+
+  .siteheader {
+    background: linear-gradient(180deg, #FF66CC 0%, #FF1493 50%, #CC0099 100%);
+    border-bottom: 4px solid #000033;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 32px;
+    font-weight: bold;
+    color: #FFFF00;
+    text-shadow: 3px 3px 0 #0033CC;
+    margin: 0;
+  }
+  .logo span { color: #00FFCC; }
+  .navlinks {
+    background: #FFFDE0;
+    border: 2px outset #fff;
+    padding: 6px 10px;
+    font-weight: bold;
+    font-size: 11px;
+  }
+  .navlinks a { margin: 0 6px; color: #0033CC; }
+
+  .pagewrap {
+    max-width: 1000px;
+    margin: 10px auto;
+    background: #FFFDF0;
+    border: 4px ridge #0033CC;
+    padding: 12px;
+    min-height: 300px;
+  }
+
+  .box { border: 2px solid #336699; margin-bottom: 10px; background: #fff; }
+  .box-head {
+    background: linear-gradient(180deg, #99CCFF, #3366CC);
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 5px 8px;
+    border-bottom: 2px solid #003366;
+  }
+  .box-body { padding: 10px; background: #F5F9FF; }
+
+  input[type=text], input[type=email], input[type=password], textarea {
+    width: 100%;
+    border: 2px inset #336699;
+    font-family: Arial;
+    font-size: 12px;
+    padding: 5px;
+    margin-bottom: 8px;
+  }
+  textarea { resize: vertical; min-height: 50px; font-family: "Comic Sans MS", cursive; }
+
+  button, .btn {
+    background: linear-gradient(180deg, #FFCC00, #FF9900);
+    border: 2px outset #fff;
+    font-weight: bold;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  button:active { border-style: inset; }
+  .btn-green { background: linear-gradient(180deg, #99FF99, #33CC33); }
+  .btn-pink { background: linear-gradient(180deg, #FF99CC, #FF3399); }
+
+  .error-msg { color: #CC0000; font-weight: bold; font-size: 11px; margin-bottom: 6px; }
+  .success-msg { color: #009900; font-weight: bold; font-size: 11px; margin-bottom: 6px; }
+
+  table.profile-layout { width: 100%; border-collapse: collapse; }
+  td.col-left { width: 220px; vertical-align: top; padding: 4px; }
+  td.col-center { vertical-align: top; padding: 4px; }
+
+  .profilepic { text-align: center; padding: 10px; background: #FFEFF7; border: 2px solid #FF1493; }
+  .profilepic img { width: 130px; height: 130px; border: 4px solid #fff; outline: 3px solid #0033CC; }
+  .uname { font-family: "Comic Sans MS", cursive; font-size: 16px; color: #CC0099; font-weight: bold; margin-top: 6px; }
+
+  table.stats { width: 100%; font-size: 11px; border-collapse: collapse; }
+  table.stats td { padding: 3px 4px; border-bottom: 1px dotted #99BBDD; }
+  table.stats td.lbl { font-weight: bold; color: #003366; width: 45%; }
+
+  .wallpost { border-bottom: 2px dotted #99AACC; padding: 8px 4px; }
+  .wallpost .meta { font-weight: bold; color: #CC0099; font-size: 12px; }
+  .wallpost .meta .time { font-weight: normal; color: #888; font-size: 10px; margin-left: 6px; }
+  .wallpost .msg { font-size: 12px; margin-top: 2px; line-height: 1.4; }
+  .wallpost .actions { font-size: 10px; margin-top: 4px; }
+  .wallpost .actions a { margin-right: 8px; }
+
+  .friendsgrid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+  .friendcard { text-align: center; background: #fff; border: 2px solid #99CCFF; padding: 4px; }
+  .friendcard img { width: 60px; height: 60px; border: 2px solid #336699; }
+  .friendcard .fname { font-size: 10px; font-weight: bold; color: #003366; display: block; }
+
+  .hidden { display: none !important; }
+
+  .sitefooter {
+    text-align: center; background: #000033; color: #99CCFF;
+    font-size: 10px; padding: 10px; margin-top: 10px; border-top: 4px solid #FF1493;
+  }
+  .sitefooter a { color: #FFFF00; }
+</style>
+</head>
+<body>
+
+<div class="siteheader">
+  <div class="logo">10<span>Chat</span></div>
+  <div class="navlinks" id="navlinks">
+    <!-- filled in by JS depending on login state -->
+  </div>
+</div>
+
+<div class="pagewrap" id="app">
+  Loading...
+</div>
+
+<div class="sitefooter">
+  10Chat.com &copy; 2026 | A real full-stack rebuild of the early-2000s classic
+</div>
+
+<script>
+const API = '/api';
+let currentUser = null;
+
+async function api(method, url, body) {
+  const res = await fetch(API + url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function timeAgo(dateStr) {
+  const seconds = Math.floor((Date.now() - new Date(dateStr + 'Z')) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  return Math.floor(seconds / 86400) + 'd ago';
+}
+
+// ---------- Routing ----------
+function navigate(path) {
+  history.pushState({}, '', path);
+  render();
+}
+window.addEventListener('popstate', render);
+
+function renderNav() {
+  const nav = document.getElementById('navlinks');
+  if (currentUser) {
+    nav.innerHTML = `
+      <a onclick="navigate('/profile/${currentUser.username}')">My Profile</a>|
+      <a onclick="navigate('/')">Home</a>|
+      <a onclick="doLogout()">Logout (${escapeHtml(currentUser.username)})</a>
+    `;
+  } else {
+    nav.innerHTML = `
+      <a onclick="navigate('/login')">Login</a>|
+      <a onclick="navigate('/signup')">Sign Up</a>
+    `;
+  }
+}
+
+async function doLogout() {
+  await api('POST', '/logout');
+  currentUser = null;
+  renderNav();
+  navigate('/');
+}
+
+async function refreshMe() {
+  const data = await api('GET', '/me');
+  currentUser = data.user;
+  renderNav();
+}
+
+// ---------- Views ----------
+async function render() {
+  const path = location.pathname;
+  const app = document.getElementById('app');
+
+  if (path === '/signup') return renderSignup(app);
+  if (path === '/login') return renderLogin(app);
+  if (path.startsWith('/profile/')) return renderProfile(app, path.split('/profile/')[1]);
+  return renderHome(app);
+}
+
+function renderHome(app) {
+  if (currentUser) {
+    navigate('/profile/' + currentUser.username);
+    return;
+  }
+  app.innerHTML = `
+    <div class="box">
+      <div class="box-head">Welcome to 10Chat!</div>
+      <div class="box-body">
+        <p>The social network that time forgot (until now). <a onclick="navigate('/signup')">Sign up</a> or
+        <a onclick="navigate('/login')">log in</a> to get started.</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderSignup(app) {
+  app.innerHTML = `
+    <div class="box" style="max-width:400px; margin:0 auto;">
+      <div class="box-head">Sign Up for 10Chat</div>
+      <div class="box-body">
+        <div id="form-msg"></div>
+        <form id="signup-form">
+          <label>Username</label>
+          <input type="text" name="username" required>
+          <label>Display Name</label>
+          <input type="text" name="display_name">
+          <label>Email</label>
+          <input type="email" name="email" required>
+          <label>Password (8+ characters)</label>
+          <input type="password" name="password" required minlength="8">
+          <button type="submit">Create My Profile!</button>
+        </form>
+        <p>Already have an account? <a onclick="navigate('/login')">Log in</a></p>
+      </div>
+    </div>
+  `;
+  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const msg = document.getElementById('form-msg');
+    try {
+      const data = await api('POST', '/signup', {
+        username: fd.get('username'),
+        display_name: fd.get('display_name'),
+        email: fd.get('email'),
+        password: fd.get('password')
+      });
+      currentUser = data.user;
+      renderNav();
+      navigate('/profile/' + currentUser.username);
+    } catch (err) {
+      msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+
+function renderLogin(app) {
+  app.innerHTML = `
+    <div class="box" style="max-width:400px; margin:0 auto;">
+      <div class="box-head">Log In to 10Chat</div>
+      <div class="box-body">
+        <div id="form-msg"></div>
+        <form id="login-form">
+          <label>Username</label>
+          <input type="text" name="username" required>
+          <label>Password</label>
+          <input type="password" name="password" required>
+          <button type="submit">Log In</button>
+        </form>
+        <p>New here? <a onclick="navigate('/signup')">Sign up</a></p>
+      </div>
+    </div>
+  `;
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const msg = document.getElementById('form-msg');
+    try {
+      const data = await api('POST', '/login', {
+        username: fd.get('username'),
+        password: fd.get('password')
+      });
+      currentUser = data.user;
+      renderNav();
+      navigate('/profile/' + currentUser.username);
+    } catch (err) {
+      msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+
+async function renderProfile(app, username) {
+  app.innerHTML = 'Loading profile...';
+  let data;
+  try {
+    data = await api('GET', '/profile/' + username);
+  } catch (err) {
+    app.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    return;
+  }
+
+  const { user, stats, top8 } = data;
+  const isOwnProfile = currentUser && currentUser.username === user.username;
+
+  app.innerHTML = `
+    <table class="profile-layout">
+      <tr>
+        <td class="col-left">
+          <div class="box">
+            <div class="profilepic">
+              <img src="${user.profile_pic_url}" onerror="this.src='https://placehold.co/130x130/FF69B4/ffffff?text=' + '${escapeHtml(user.username[0].toUpperCase())}'">
+              <div class="uname">${escapeHtml(user.display_name || user.username)}</div>
+              <div style="font-size:11px; color:#336699;">@${escapeHtml(user.username)}</div>
+              ${user.mood ? `<div style="font-style:italic; font-size:11px;">"${escapeHtml(user.mood)}"</div>` : ''}
+            </div>
+          </div>
+          <div class="box">
+            <div class="box-head">Details</div>
+            <div class="box-body">
+              <table class="stats">
+                <tr><td class="lbl">Location:</td><td>${escapeHtml(user.location || '-')}</td></tr>
+                <tr><td class="lbl">Status:</td><td>${escapeHtml(user.relationship_status || '-')}</td></tr>
+                <tr><td class="lbl">Friends:</td><td>${stats.friends}</td></tr>
+                <tr><td class="lbl">Profile Views:</td><td>${stats.views}</td></tr>
+              </table>
+            </div>
+          </div>
+          ${isOwnProfile ? renderEditForm(user) : `<div class="box"><div class="box-body"><button class="btn-pink" onclick="addFriend('${escapeHtml(user.username)}')">+ Add Friend</button></div></div>`}
+        </td>
+        <td class="col-center">
+          <div class="box">
+            <div class="box-head">About Me</div>
+            <div class="box-body">${user.bio ? escapeHtml(user.bio) : '<i>No bio yet.</i>'}</div>
+          </div>
+
+          <div class="box">
+            <div class="box-head">Top 8 Friends</div>
+            <div class="box-body">
+              ${top8.length ? `<div class="friendsgrid">${top8.map(f => `
+                <div class="friendcard">
+                  <img src="${f.profile_pic_url}" onerror="this.src='https://placehold.co/60x60/3366CC/ffffff?text=${escapeHtml(f.username[0].toUpperCase())}'"><br>
+                  <a class="fname" onclick="navigate('/profile/${escapeHtml(f.username)}')">${escapeHtml(f.display_name || f.username)}</a>
+                </div>`).join('')}</div>` : '<i>No top friends set yet.</i>'}
+            </div>
+          </div>
+
+          <div class="box">
+            <div class="box-head">${escapeHtml(user.display_name || user.username)}'s Wall</div>
+            <div class="box-body">
+              ${currentUser ? `
+                <textarea id="wall-input" placeholder="Write something..."></textarea>
+                <button onclick="postToWall('${escapeHtml(user.username)}')">Post</button>
+                <div id="wall-msg"></div>
+                <hr>
+              ` : '<p><i>Log in to post on this wall.</i></p>'}
+              <div id="wall-posts">Loading posts...</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  loadWall(user.username);
+}
+
+function renderEditForm(user) {
+  return `
+    <div class="box">
+      <div class="box-head">Edit My Profile</div>
+      <div class="box-body">
+        <div id="edit-msg"></div>
+        <form id="edit-form">
+          <label>Display Name</label>
+          <input type="text" name="display_name" value="${escapeHtml(user.display_name || '')}">
+          <label>Bio</label>
+          <textarea name="bio">${escapeHtml(user.bio || '')}</textarea>
+          <label>Location</label>
+          <input type="text" name="location" value="${escapeHtml(user.location || '')}">
+          <label>Mood</label>
+          <input type="text" name="mood" value="${escapeHtml(user.mood || '')}">
+          <label>Relationship Status</label>
+          <input type="text" name="relationship_status" value="${escapeHtml(user.relationship_status || '')}">
+          <button type="submit">Save Changes</button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+document.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'edit-form') return;
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const msg = document.getElementById('edit-msg');
+  try {
+    await api('PUT', '/profile', {
+      display_name: fd.get('display_name'),
+      bio: fd.get('bio'),
+      location: fd.get('location'),
+      mood: fd.get('mood'),
+      relationship_status: fd.get('relationship_status')
+    });
+    msg.innerHTML = `<div class="success-msg">Saved!</div>`;
+    render();
+  } catch (err) {
+    msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+});
+
+async function loadWall(username) {
+  const container = document.getElementById('wall-posts');
+  try {
+    const { posts } = await api('GET', `/profile/${username}/wall`);
+    if (!posts.length) {
+      container.innerHTML = '<i>No posts yet. Be the first!</i>';
+      return;
+    }
+    container.innerHTML = posts.map(p => `
+      <div class="wallpost">
+        <div class="meta">
+          <a onclick="navigate('/profile/${escapeHtml(p.author_username)}')">${escapeHtml(p.author_display_name || p.author_username)}</a>
+          <span class="time">${timeAgo(p.created_at)}</span>
+        </div>
+        <div class="msg">${escapeHtml(p.content)}</div>
+        ${currentUser ? `<div class="actions"><a onclick="deletePost(${p.id}, '${escapeHtml(username)}')">Delete</a></div>` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function postToWall(username) {
+  const input = document.getElementById('wall-input');
+  const msg = document.getElementById('wall-msg');
+  try {
+    await api('POST', `/profile/${username}/wall`, { content: input.value });
+    input.value = '';
+    msg.innerHTML = '';
+    loadWall(username);
+  } catch (err) {
+    msg.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function deletePost(id, username) {
+  try {
+    await api('DELETE', `/posts/${id}`);
+    loadWall(username);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function addFriend(username) {
+  try {
+    await api('POST', `/friends/${username}/request`);
+    alert('Friend request sent!');
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ---------- Boot ----------
+(async function init() {
+  try {
+    await refreshMe();
+  } catch (e) { /* not logged in */ }
+  render();
+})();
+</script>
+
+</body>
+</html>
