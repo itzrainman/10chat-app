@@ -204,18 +204,31 @@ app.post('/api/profile/picture', requireLogin, (req, res) => {
 
 // ---------- Wall posts ----------
 
+// Attach like count, whether the current viewer liked it, and comment count to a list of posts
+function enrichPostsWithLikesAndComments(posts, viewerId) {
+  return posts.map(p => {
+    const likeCount = db.get('SELECT COUNT(*) AS count FROM likes WHERE post_id = ?', [p.id]).count;
+    const liked = viewerId
+      ? !!db.get('SELECT id FROM likes WHERE post_id = ? AND user_id = ?', [p.id, viewerId])
+      : false;
+    const commentCount = db.get('SELECT COUNT(*) AS count FROM comments WHERE post_id = ?', [p.id]).count;
+    return { ...p, like_count: likeCount, liked_by_me: liked, comment_count: commentCount };
+  });
+}
+
 // Get wall posts for a profile
 app.get('/api/profile/:username/wall', (req, res) => {
   const profileUser = db.get('SELECT id FROM users WHERE username = ?', [req.params.username]);
   if (!profileUser) return res.status(404).json({ error: 'User not found.' });
 
-  const posts = db.all(
+  let posts = db.all(
     `SELECT p.id, p.content, p.created_at, u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
      FROM posts p JOIN users u ON u.id = p.author_id
      WHERE p.profile_user_id = ?
      ORDER BY p.created_at DESC LIMIT 50`,
     [profileUser.id]
   );
+  posts = enrichPostsWithLikesAndComments(posts, req.session.userId);
   res.json({ posts });
 });
 
@@ -257,7 +270,7 @@ app.delete('/api/posts/:id', requireLogin, (req, res) => {
 // Works for logged-out visitors too, since it's public content.
 app.get('/api/feed', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
-  const posts = db.all(
+  let posts = db.all(
     `SELECT p.id, p.content, p.created_at,
             author.username AS author_username, author.display_name AS author_display_name, author.profile_pic_url AS author_pic,
             profileowner.username AS profile_username, profileowner.display_name AS profile_display_name
@@ -268,6 +281,7 @@ app.get('/api/feed', (req, res) => {
      LIMIT ?`,
     [limit]
   );
+  posts = enrichPostsWithLikesAndComments(posts, req.session.userId);
   res.json({ posts });
 });
 
@@ -341,35 +355,170 @@ app.post('/api/friends/top8', requireLogin, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------- Comments ----------
+// Reject/cancel a friend request (works whether you're the recipient declining,
+// or the sender cancelling their own pending request)
+app.post('/api/friends/:username/reject', requireLogin, (req, res) => {
+  const other = db.get('SELECT id FROM users WHERE username = ?', [req.params.username]);
+  if (!other) return res.status(404).json({ error: 'User not found.' });
 
+  const result = db.run(
+    `DELETE FROM friendships WHERE status = 'pending' AND
+     ((user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?))`,
+    [other.id, req.session.userId, req.session.userId, other.id]
+  );
+  if (result.changes === 0) return res.status(404).json({ error: 'No pending request found.' });
+  res.json({ ok: true });
+});
+
+// Unfriend someone (removes both directions of an accepted friendship)
+app.post('/api/friends/:username/remove', requireLogin, (req, res) => {
+  const other = db.get('SELECT id FROM users WHERE username = ?', [req.params.username]);
+  if (!other) return res.status(404).json({ error: 'User not found.' });
+
+  db.run(
+    `DELETE FROM friendships WHERE
+     (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`,
+    [req.session.userId, other.id, other.id, req.session.userId]
+  );
+  res.json({ ok: true });
+});
+
+// Check the friendship status between the logged-in user and another user.
+// Returns one of: 'self', 'none', 'pending_sent', 'pending_received', 'friends'
+app.get('/api/friends/:username/status', requireLogin, (req, res) => {
+  const other = db.get('SELECT id FROM users WHERE username = ?', [req.params.username]);
+  if (!other) return res.status(404).json({ error: 'User not found.' });
+
+  if (other.id === req.session.userId) return res.json({ status: 'self' });
+
+  const sent = db.get(`SELECT status FROM friendships WHERE user_id = ? AND friend_id = ?`,
+    [req.session.userId, other.id]);
+  const received = db.get(`SELECT status FROM friendships WHERE user_id = ? AND friend_id = ?`,
+    [other.id, req.session.userId]);
+
+  if (sent?.status === 'accepted' || received?.status === 'accepted') {
+    return res.json({ status: 'friends' });
+  }
+  if (sent?.status === 'pending') return res.json({ status: 'pending_sent' });
+  if (received?.status === 'pending') return res.json({ status: 'pending_received' });
+  res.json({ status: 'none' });
+});
+
+// ---------- User search ----------
+
+// Search for users by username (partial match, case-insensitive)
+app.get('/api/search', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json({ users: [] });
+  if (q.length > 50) return res.status(400).json({ error: 'Search term too long.' });
+
+  const users = db.all(
+    `SELECT username, display_name, profile_pic_url
+     FROM users
+     WHERE username LIKE ? OR display_name LIKE ?
+     ORDER BY username ASC
+     LIMIT 20`,
+    [`%${q}%`, `%${q}%`]
+  );
+  res.json({ users });
+});
+
+// ---------- Comments (threaded) ----------
+
+// Get all comments for a post, organized as a tree (top-level comments with nested replies)
 app.get('/api/posts/:id/comments', (req, res) => {
-  const comments = db.all(
-    `SELECT c.id, c.content, c.created_at, u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
+  const flat = db.all(
+    `SELECT c.id, c.content, c.created_at, c.parent_comment_id,
+            u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
      FROM comments c JOIN users u ON u.id = c.author_id
      WHERE c.post_id = ? ORDER BY c.created_at ASC`,
     [req.params.id]
   );
-  res.json({ comments });
+
+  // Build a tree: top-level comments hold a `replies` array of their children
+  const byId = {};
+  flat.forEach(c => { byId[c.id] = { ...c, replies: [] }; });
+  const topLevel = [];
+  flat.forEach(c => {
+    if (c.parent_comment_id && byId[c.parent_comment_id]) {
+      byId[c.parent_comment_id].replies.push(byId[c.id]);
+    } else {
+      topLevel.push(byId[c.id]);
+    }
+  });
+
+  res.json({ comments: topLevel });
 });
 
+// Add a comment, or a reply to an existing comment (pass parent_comment_id to reply)
 app.post('/api/posts/:id/comments', requireLogin, (req, res) => {
-  const { content } = req.body;
+  const { content, parent_comment_id } = req.body;
   if (!content || !content.trim()) return res.status(400).json({ error: 'Comment cannot be empty.' });
+  if (content.length > 500) return res.status(400).json({ error: 'Comment is too long.' });
 
   const post = db.get('SELECT id FROM posts WHERE id = ?', [req.params.id]);
   if (!post) return res.status(404).json({ error: 'Post not found.' });
 
+  let parentId = null;
+  if (parent_comment_id) {
+    const parent = db.get('SELECT id, post_id FROM comments WHERE id = ?', [parent_comment_id]);
+    if (!parent || parent.post_id !== post.id) {
+      return res.status(400).json({ error: 'Invalid comment to reply to.' });
+    }
+    parentId = parent.id;
+  }
+
   const result = db.run(
-    `INSERT INTO comments (post_id, author_id, content) VALUES (?, ?, ?)`,
-    [req.params.id, req.session.userId, content.trim()]
+    `INSERT INTO comments (post_id, author_id, parent_comment_id, content) VALUES (?, ?, ?, ?)`,
+    [req.params.id, req.session.userId, parentId, content.trim()]
   );
   const comment = db.get(
-    `SELECT c.id, c.content, c.created_at, u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
+    `SELECT c.id, c.content, c.created_at, c.parent_comment_id, u.username AS author_username, u.display_name AS author_display_name, u.profile_pic_url AS author_pic
      FROM comments c JOIN users u ON u.id = c.author_id WHERE c.id = ?`,
     [result.lastInsertRowid]
   );
-  res.status(201).json({ comment });
+  res.status(201).json({ comment: { ...comment, replies: [] } });
+});
+
+// Delete a comment (only the comment author can delete; also deletes its replies)
+app.delete('/api/comments/:id', requireLogin, (req, res) => {
+  const comment = db.get('SELECT * FROM comments WHERE id = ?', [req.params.id]);
+  if (!comment) return res.status(404).json({ error: 'Comment not found.' });
+  if (comment.author_id !== req.session.userId) {
+    return res.status(403).json({ error: 'You cannot delete this comment.' });
+  }
+  db.run('DELETE FROM comments WHERE id = ? OR parent_comment_id = ?', [req.params.id, req.params.id]);
+  res.json({ ok: true });
+});
+
+// ---------- Likes ----------
+
+// Toggle a like on a post (like if not liked, unlike if already liked)
+app.post('/api/posts/:id/like', requireLogin, (req, res) => {
+  const post = db.get('SELECT id FROM posts WHERE id = ?', [req.params.id]);
+  if (!post) return res.status(404).json({ error: 'Post not found.' });
+
+  const existing = db.get('SELECT id FROM likes WHERE post_id = ? AND user_id = ?',
+    [req.params.id, req.session.userId]);
+
+  if (existing) {
+    db.run('DELETE FROM likes WHERE id = ?', [existing.id]);
+  } else {
+    db.run('INSERT INTO likes (post_id, user_id) VALUES (?, ?)', [req.params.id, req.session.userId]);
+  }
+
+  const count = db.get('SELECT COUNT(*) AS count FROM likes WHERE post_id = ?', [req.params.id]).count;
+  res.json({ liked: !existing, count });
+});
+
+// Get like info for a post (count + whether the current user has liked it)
+app.get('/api/posts/:id/likes', (req, res) => {
+  const count = db.get('SELECT COUNT(*) AS count FROM likes WHERE post_id = ?', [req.params.id]).count;
+  let liked = false;
+  if (req.session.userId) {
+    liked = !!db.get('SELECT id FROM likes WHERE post_id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  }
+  res.json({ count, liked });
 });
 
 // Fallback to index.html for any non-API route (simple SPA-ish behavior)

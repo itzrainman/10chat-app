@@ -2,7 +2,10 @@
 const { Database } = require('node-sqlite3-wasm');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, '10chat.sqlite'));
+// Use DB_PATH env var if set (e.g. a Railway volume mount like /data/10chat.sqlite),
+// otherwise default to a local file next to this script for local development.
+const dbPath = process.env.DB_PATH || path.join(__dirname, '10chat.sqlite');
+const db = new Database(dbPath);
 
 // Create tables if they don't exist
 db.exec(`
@@ -34,10 +37,22 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id INTEGER NOT NULL,
     author_id INTEGER NOT NULL,
+    parent_comment_id INTEGER DEFAULT NULL,  -- NULL = top-level comment, otherwise a reply
     content TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (post_id) REFERENCES posts(id),
-    FOREIGN KEY (author_id) REFERENCES users(id)
+    FOREIGN KEY (author_id) REFERENCES users(id),
+    FOREIGN KEY (parent_comment_id) REFERENCES comments(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(post_id, user_id)
   );
 
   CREATE TABLE IF NOT EXISTS friendships (
@@ -61,5 +76,12 @@ db.exec(`
     FOREIGN KEY (viewed_id) REFERENCES users(id)
   );
 `);
+
+// ---------- Migrations for databases created before this column existed ----------
+// (Safe to run every time: checks the column first, only adds it if missing.)
+const commentCols = db.all(`PRAGMA table_info(comments)`).map(c => c.name);
+if (!commentCols.includes('parent_comment_id')) {
+  db.exec(`ALTER TABLE comments ADD COLUMN parent_comment_id INTEGER DEFAULT NULL`);
+}
 
 module.exports = db;
